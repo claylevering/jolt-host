@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
   if (!slug) {
     throw createError({ statusCode: 404, message: 'Not found' })
   }
-  const row = findUploadBySlug(slug)
+  const row = await findUploadBySlug(slug)
   if (!row || !row.password_hash) {
     return sendRedirect(event, `/view/${slug}/`, 302)
   }

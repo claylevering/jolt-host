@@ -1,6 +1,13 @@
 const DEFAULT_UPLOAD_MAX_BYTES = 100 * 1024 * 1024 // 100MB
 
 export default defineNuxtConfig({
+  modules: ['@nuxthub/core'],
+
+  hub: {
+    database: true,
+    blob: true,
+  },
+
   compatibilityDate: '2025-02-18',
   devtools: { enabled: true },
   runtimeConfig: {
@@ -15,7 +22,7 @@ export default defineNuxtConfig({
     output: { dir: '.output' },
     experimental: { tasks: true },
     scheduledTasks: {
-      // Run cleanup every 15 minutes
+      // Run cleanup every 15 minutes (maps to wrangler.toml cron trigger)
       '*/15 * * * *': ['cleanup-expired'],
     },
   },

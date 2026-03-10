@@ -1,121 +1,83 @@
-import Database from 'better-sqlite3'
-import { join, dirname } from 'path'
-import { mkdirSync, existsSync } from 'fs'
-
-const STORAGE_DIR = process.env.NODE_ENV === 'test'
-  ? join(process.cwd(), 'test', 'tmp-storage')
-  : join(process.cwd(), 'storage')
-const DB_PATH = process.env.NODE_ENV === 'test'
-  ? join(process.cwd(), 'test', 'tmp-data', 'jolt.db')
-  : join(process.cwd(), 'data', 'jolt.db')
-
-let db: ReturnType<typeof Database> | null = null
-
-function getDb(): Database.Database {
-  if (!db) {
-    const dir = dirname(DB_PATH)
-    if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
-    db = new Database(DB_PATH)
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS uploads (
-        id TEXT PRIMARY KEY,
-        slug TEXT UNIQUE NOT NULL,
-        entry_point TEXT NOT NULL,
-        password_hash TEXT,
-        owner_token TEXT,
-        created_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-      CREATE INDEX IF NOT EXISTS idx_uploads_slug ON uploads(slug);
-    `)
-    const hasPasswordHash = (db.prepare("SELECT 1 FROM pragma_table_info('uploads') WHERE name = 'password_hash'").get() as { '1': number } | undefined) != null
-    if (!hasPasswordHash) {
-      db.exec(`ALTER TABLE uploads ADD COLUMN password_hash TEXT`)
-    }
-    const hasOwnerToken = (db.prepare("SELECT 1 FROM pragma_table_info('uploads') WHERE name = 'owner_token'").get() as { '1': number } | undefined) != null
-    if (!hasOwnerToken) {
-      db.exec(`ALTER TABLE uploads ADD COLUMN owner_token TEXT`)
-    }
-    const hasExpiresAt = (db.prepare("SELECT 1 FROM pragma_table_info('uploads') WHERE name = 'expires_at'").get() as { '1': number } | undefined) != null
-    if (!hasExpiresAt) {
-      db.exec(`ALTER TABLE uploads ADD COLUMN expires_at TEXT`)
-    }
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS api_tokens (
-        id TEXT PRIMARY KEY,
-        nickname TEXT UNIQUE NOT NULL,
-        token_hash TEXT NOT NULL,
-        created_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-      CREATE INDEX IF NOT EXISTS idx_api_tokens_nickname ON api_tokens(nickname);
-    `)
-  }
-  return db
+export type UploadRow = {
+  id: string
+  slug: string
+  entry_point: string
+  password_hash: string | null
+  owner_token: string | null
+  created_at: string
+  expires_at: string | null
 }
 
-export function getStorageDir(): string {
-  if (!existsSync(STORAGE_DIR)) mkdirSync(STORAGE_DIR, { recursive: true })
-  return STORAGE_DIR
-}
-
-export function getDbPath(): string {
-  return DB_PATH
-}
-
-export function insertUpload(
+export async function insertUpload(
   id: string,
   slug: string,
   entryPoint: string,
   passwordHash: string | null = null,
   ownerToken: string | null = null,
   expiresAt: string | null = null
-): void {
-  const database = getDb()
-  database.prepare(
-    'INSERT INTO uploads (id, slug, entry_point, password_hash, owner_token, created_at, expires_at) VALUES (?, ?, ?, ?, ?, datetime(\'now\'), ?)'
-  ).run(id, slug, entryPoint, passwordHash, ownerToken, expiresAt)
+): Promise<void> {
+  await hubDatabase()
+    .prepare(
+      "INSERT INTO uploads (id, slug, entry_point, password_hash, owner_token, created_at, expires_at) VALUES (?, ?, ?, ?, ?, datetime('now'), ?)"
+    )
+    .bind(id, slug, entryPoint, passwordHash, ownerToken, expiresAt)
+    .run()
 }
 
-export function updatePasswordBySlugAndOwnerToken(slug: string, ownerToken: string, passwordHash: string): boolean {
-  const database = getDb()
-  const info = database.prepare(
-    'UPDATE uploads SET password_hash = ? WHERE slug = ? AND owner_token = ?'
-  ).run(passwordHash, slug, ownerToken)
-  return info.changes === 1
+export async function updatePasswordBySlugAndOwnerToken(
+  slug: string,
+  ownerToken: string,
+  passwordHash: string
+): Promise<boolean> {
+  const result = await hubDatabase()
+    .prepare('UPDATE uploads SET password_hash = ? WHERE slug = ? AND owner_token = ?')
+    .bind(passwordHash, slug, ownerToken)
+    .run()
+  return (result.meta?.changes ?? 0) >= 1
 }
 
-export function updateExpirationBySlugAndOwnerToken(slug: string, ownerToken: string, expiresAt: string | null): boolean {
-  const database = getDb()
-  const info = database.prepare(
-    'UPDATE uploads SET expires_at = ? WHERE slug = ? AND owner_token = ?'
-  ).run(expiresAt, slug, ownerToken)
-  return info.changes === 1
+export async function updateExpirationBySlugAndOwnerToken(
+  slug: string,
+  ownerToken: string,
+  expiresAt: string | null
+): Promise<boolean> {
+  const result = await hubDatabase()
+    .prepare('UPDATE uploads SET expires_at = ? WHERE slug = ? AND owner_token = ?')
+    .bind(expiresAt, slug, ownerToken)
+    .run()
+  return (result.meta?.changes ?? 0) >= 1
 }
 
-export type UploadRow = { id: string; slug: string; entry_point: string; password_hash: string | null; owner_token: string | null; created_at: string; expires_at: string | null }
-
-export function findUploadBySlug(slug: string): UploadRow | undefined {
-  const database = getDb()
-  const row = database.prepare('SELECT id, slug, entry_point, password_hash, owner_token, created_at, expires_at FROM uploads WHERE slug = ?').get(slug) as UploadRow | undefined
-  return row
+export async function findUploadBySlug(slug: string): Promise<UploadRow | undefined> {
+  const row = await hubDatabase()
+    .prepare(
+      'SELECT id, slug, entry_point, password_hash, owner_token, created_at, expires_at FROM uploads WHERE slug = ?'
+    )
+    .bind(slug)
+    .first<UploadRow>()
+  return row ?? undefined
 }
 
-/** Returns slugs of uploads whose expires_at is set and in the past. */
-export function getExpiredUploadSlugs(): string[] {
-  const database = getDb()
-  const rows = database.prepare(
-    "SELECT slug FROM uploads WHERE expires_at IS NOT NULL AND datetime(expires_at) < datetime('now')"
-  ).all() as { slug: string }[]
-  return rows.map((r) => r.slug)
+export async function getExpiredUploadSlugs(): Promise<string[]> {
+  const { results } = await hubDatabase()
+    .prepare(
+      "SELECT slug FROM uploads WHERE expires_at IS NOT NULL AND datetime(expires_at) < datetime('now')"
+    )
+    .all<{ slug: string }>()
+  return results.map((r) => r.slug)
 }
 
-export function deleteUploadBySlug(slug: string): boolean {
-  const database = getDb()
-  const info = database.prepare('DELETE FROM uploads WHERE slug = ?').run(slug)
-  return info.changes === 1
+export async function deleteUploadBySlug(slug: string): Promise<boolean> {
+  const result = await hubDatabase()
+    .prepare('DELETE FROM uploads WHERE slug = ?')
+    .bind(slug)
+    .run()
+  return (result.meta?.changes ?? 0) >= 1
 }
 
-export function slugExists(slug: string): boolean {
-  return findUploadBySlug(slug) !== undefined
+export async function slugExists(slug: string): Promise<boolean> {
+  const row = await findUploadBySlug(slug)
+  return row !== undefined
 }
 
 export type UploadListItem = {
@@ -127,16 +89,15 @@ export type UploadListItem = {
   has_password: boolean
 }
 
-export function getAllUploads(): UploadListItem[] {
-  const database = getDb()
-  const rows = database
+export async function getAllUploads(): Promise<UploadListItem[]> {
+  const { results } = await hubDatabase()
     .prepare(
       `SELECT id, slug, entry_point, created_at, expires_at,
         CASE WHEN password_hash IS NOT NULL THEN 1 ELSE 0 END as has_password
        FROM uploads ORDER BY created_at DESC`
     )
-    .all() as (UploadRow & { has_password: number })[]
-  return rows.map((r) => ({
+    .all<UploadRow & { has_password: number }>()
+  return results.map((r) => ({
     id: r.id,
     slug: r.slug,
     entry_point: r.entry_point,
@@ -147,26 +108,26 @@ export function getAllUploads(): UploadListItem[] {
 }
 
 export type UploadsFilter = {
-  dateFrom?: string // ISO date
-  dateTo?: string // ISO date
-  hasPassword?: boolean // true = protected only, false = unprotected only, undefined = all
+  dateFrom?: string
+  dateTo?: string
+  hasPassword?: boolean
   page?: number
   limit?: number
 }
 
-export function getUploadsPaginated(filter: UploadsFilter = {}): {
+export async function getUploadsPaginated(filter: UploadsFilter = {}): Promise<{
   items: UploadListItem[]
   total: number
   page: number
   limit: number
-} {
-  const database = getDb()
+}> {
+  const db = hubDatabase()
   const page = Math.max(1, filter.page ?? 1)
   const limit = Math.min(100, Math.max(1, filter.limit ?? 20))
   const offset = (page - 1) * limit
 
   const conditions: string[] = []
-  const params: (string | number)[] = []
+  const params: (string | number | null)[] = []
 
   if (filter.dateFrom) {
     conditions.push('date(created_at) >= date(?)')
@@ -183,12 +144,14 @@ export function getUploadsPaginated(filter: UploadsFilter = {}): {
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
-  const countRow = database
-    .prepare(`SELECT COUNT(*) as n FROM uploads ${whereClause}`)
-    .get(...params) as { n: number }
-  const total = countRow.n
 
-  const rows = database
+  const countRow = await db
+    .prepare(`SELECT COUNT(*) as n FROM uploads ${whereClause}`)
+    .bind(...params)
+    .first<{ n: number }>()
+  const total = countRow?.n ?? 0
+
+  const { results: rows } = await db
     .prepare(
       `SELECT id, slug, entry_point, created_at, expires_at,
         CASE WHEN password_hash IS NOT NULL THEN 1 ELSE 0 END as has_password
@@ -196,7 +159,8 @@ export function getUploadsPaginated(filter: UploadsFilter = {}): {
        ORDER BY created_at DESC
        LIMIT ? OFFSET ?`
     )
-    .all(...params, limit, offset) as (UploadRow & { has_password: number })[]
+    .bind(...params, limit, offset)
+    .all<UploadRow & { has_password: number }>()
 
   const items = rows.map((r) => ({
     id: r.id,
@@ -210,46 +174,53 @@ export function getUploadsPaginated(filter: UploadsFilter = {}): {
   return { items, total, page, limit }
 }
 
-export function updatePasswordBySlug(slug: string, passwordHash: string | null): boolean {
-  const database = getDb()
-  const info = database.prepare('UPDATE uploads SET password_hash = ? WHERE slug = ?').run(passwordHash, slug)
-  return info.changes === 1
+export async function updatePasswordBySlug(slug: string, passwordHash: string | null): Promise<boolean> {
+  const result = await hubDatabase()
+    .prepare('UPDATE uploads SET password_hash = ? WHERE slug = ?')
+    .bind(passwordHash, slug)
+    .run()
+  return (result.meta?.changes ?? 0) >= 1
 }
 
 // API tokens
+
 export type ApiTokenRow = { id: string; nickname: string; token_hash: string; created_at: string }
 
-export function insertApiToken(id: string, nickname: string, tokenHash: string): void {
-  const database = getDb()
-  database.prepare(
-    'INSERT INTO api_tokens (id, nickname, token_hash, created_at) VALUES (?, ?, ?, datetime(\'now\'))'
-  ).run(id, nickname, tokenHash)
+export async function insertApiToken(id: string, nickname: string, tokenHash: string): Promise<void> {
+  await hubDatabase()
+    .prepare("INSERT INTO api_tokens (id, nickname, token_hash, created_at) VALUES (?, ?, ?, datetime('now'))")
+    .bind(id, nickname, tokenHash)
+    .run()
 }
 
-export function findApiTokenByNickname(nickname: string): ApiTokenRow | undefined {
-  const database = getDb()
-  return database.prepare(
-    'SELECT id, nickname, token_hash, created_at FROM api_tokens WHERE nickname = ?'
-  ).get(nickname) as ApiTokenRow | undefined
+export async function findApiTokenByNickname(nickname: string): Promise<ApiTokenRow | undefined> {
+  const row = await hubDatabase()
+    .prepare('SELECT id, nickname, token_hash, created_at FROM api_tokens WHERE nickname = ?')
+    .bind(nickname)
+    .first<ApiTokenRow>()
+  return row ?? undefined
 }
 
-export function getAllApiTokens(): { id: string; nickname: string; created_at: string }[] {
-  const database = getDb()
-  const rows = database.prepare(
-    'SELECT id, nickname, created_at FROM api_tokens ORDER BY created_at DESC'
-  ).all() as ApiTokenRow[]
-  return rows.map((r) => ({ id: r.id, nickname: r.nickname, created_at: r.created_at }))
+export async function getAllApiTokens(): Promise<{ id: string; nickname: string; created_at: string }[]> {
+  const { results } = await hubDatabase()
+    .prepare('SELECT id, nickname, created_at FROM api_tokens ORDER BY created_at DESC')
+    .all<ApiTokenRow>()
+  return results.map((r) => ({ id: r.id, nickname: r.nickname, created_at: r.created_at }))
 }
 
-export function deleteApiTokenByNickname(nickname: string): boolean {
-  const database = getDb()
-  const info = database.prepare('DELETE FROM api_tokens WHERE nickname = ?').run(nickname)
-  return info.changes === 1
+export async function deleteApiTokenByNickname(nickname: string): Promise<boolean> {
+  const result = await hubDatabase()
+    .prepare('DELETE FROM api_tokens WHERE nickname = ?')
+    .bind(nickname)
+    .run()
+  return (result.meta?.changes ?? 0) >= 1
 }
 
-export function findApiTokenByHash(tokenHash: string): ApiTokenRow | undefined {
-  const database = getDb()
-  return database.prepare(
-    'SELECT id, nickname, token_hash, created_at FROM api_tokens WHERE token_hash = ?'
-  ).get(tokenHash) as ApiTokenRow | undefined
+export async function findApiTokenByHash(tokenHash: string): Promise<ApiTokenRow | undefined> {
+  const row = await hubDatabase()
+    .prepare('SELECT id, nickname, token_hash, created_at FROM api_tokens WHERE token_hash = ?')
+    .bind(tokenHash)
+    .first<ApiTokenRow>()
+  return row ?? undefined
 }
+

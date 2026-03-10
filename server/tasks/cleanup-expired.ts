@@ -6,17 +6,17 @@ export default defineTask({
     name: 'cleanup-expired',
     description: 'Delete expired static site uploads from storage and database',
   },
-  run() {
-    const slugs = getExpiredUploadSlugs()
+  async run() {
+    const slugs = await getExpiredUploadSlugs()
     let deleted = 0
     for (const slug of slugs) {
       try {
-        deleteStorageForSlug(slug)
-        if (deleteUploadBySlug(slug)) deleted++
+        await deleteStorageForSlug(slug)
+        if (await deleteUploadBySlug(slug)) deleted++
       } catch (e) {
         console.error(`[cleanup-expired] Failed to delete slug ${slug}:`, e)
       }
     }
-    return { deleted, total: slugs.length }
+    return { result: { deleted, total: slugs.length } }
   },
 })

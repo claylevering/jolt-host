@@ -1,8 +1,7 @@
-import { getRouterParam, getQuery, setHeader, sendStream, sendRedirect } from 'h3'
-import { join } from 'path'
-import { createReadStream, existsSync } from 'fs'
+import { getRouterParam, getQuery, setHeader, sendRedirect } from 'h3'
 import mime from 'mime-types'
-import { getStorageDir, findUploadBySlug } from '~/server/utils/db'
+import { findUploadBySlug } from '~/server/utils/db'
+import { getFileFromStorage } from '~/server/utils/storage'
 import { isViewAuthorized, setViewAuthCookie, validateUnlockToken } from '~/server/utils/view-auth'
 import { verifyPassword } from '~/server/utils/password'
 
@@ -12,7 +11,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: 'Not found' })
   }
 
-  const row = findUploadBySlug(slug)
+  const row = await findUploadBySlug(slug)
   if (!row) {
     throw createError({ statusCode: 404, message: 'Paste not found' })
   }
@@ -34,14 +33,7 @@ export default defineEventHandler(async (event) => {
     return sendRedirect(event, `/view/${slug}/unlock`, 302)
   }
 
-  const storage = getStorageDir()
-  const filePath = join(storage, row.entry_point)
-  if (!existsSync(filePath)) {
-    throw createError({ statusCode: 404, message: 'File not found' })
-  }
-
-  // Redirect /view/slug → /view/slug/ so relative URLs in the HTML (e.g. assets/image.png)
-  // resolve to /view/slug/assets/image.png instead of /view/assets/image.png
+  // Redirect /view/slug → /view/slug/ so relative URLs resolve correctly
   const url = getRequestURL(event)
   if (!url.pathname.endsWith('/')) {
     const location = url.pathname + '/' + (url.search || '')
@@ -49,7 +41,13 @@ export default defineEventHandler(async (event) => {
     return sendRedirect(event, location, 302)
   }
 
-  const mimeType = mime.lookup(filePath) || 'text/html'
+  const key = row.entry_point
+  const blob = await getFileFromStorage(key)
+  if (!blob) {
+    throw createError({ statusCode: 404, message: 'File not found' })
+  }
+
+  const mimeType = mime.lookup(key) || blob.type || 'text/html'
   setHeader(event, 'Content-Type', mimeType)
-  return sendStream(event, createReadStream(filePath))
+  return new Uint8Array(await blob.arrayBuffer())
 })

@@ -1,18 +1,14 @@
 import { readMultipartFormData, getRequestIP, setResponseHeader } from 'h3'
-import { createWriteStream, mkdirSync, existsSync } from 'fs'
-import path from 'path'
-import { pipeline } from 'stream/promises'
-import { Readable } from 'stream'
 import { randomUUID, randomBytes } from 'crypto'
-import unzipper from 'unzipper'
-import { getStorageDir, insertUpload, slugExists } from '~/server/utils/db'
+import { unzipSync } from 'fflate'
+import mime from 'mime-types'
+import { insertUpload, slugExists } from '~/server/utils/db'
+import { putFileInStorage } from '~/server/utils/storage'
 import { generateUniqueSlug } from '~/server/utils/slug'
 import { hashPassword } from '~/server/utils/password'
 import { createUnlockToken } from '~/server/utils/view-auth'
 import { checkUploadRateLimit } from '~/server/utils/rate-limit'
 import { isAuthorizedToUpload } from '~/server/utils/upload-auth'
-
-const STORAGE = getStorageDir()
 
 /** Parses expiration form value (1h, 8h, 24h, 1w or empty) to ISO datetime or null. */
 function parseExpirationToISO(value: string): string | null {
@@ -30,13 +26,8 @@ function parseExpirationToISO(value: string): string | null {
   return new Date(now + ms).toISOString()
 }
 
-function pathRelativeToStorage(absolutePath: string): string {
-  const rel = path.relative(STORAGE, absolutePath)
-  return rel.split(path.sep).join('/')
-}
-
 export default defineEventHandler(async (event) => {
-  if (!isAuthorizedToUpload(event)) {
+  if (!(await isAuthorizedToUpload(event))) {
     throw createError({
       statusCode: 401,
       statusMessage: 'Unauthorized',
@@ -99,53 +90,54 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'Only .html or .zip files are allowed' })
   }
 
-  const slug = generateUniqueSlug(slugExists)
+  const slug = await generateUniqueSlug(slugExists)
   const id = randomUUID()
   const ownerToken = randomBytes(24).toString('base64url')
-  const uploadDir = path.join(STORAGE, slug)
-
-  if (!existsSync(uploadDir)) {
-    mkdirSync(uploadDir, { recursive: true })
-  }
 
   let entryPoint: string
 
   if (filename.endsWith('.html')) {
-    const outPath = path.join(uploadDir, 'index.html')
-    await pipeline(
-      Readable.from(file.data),
-      createWriteStream(outPath)
-    )
-    entryPoint = pathRelativeToStorage(outPath)
+    const key = `${slug}/index.html`
+    const content = Buffer.isBuffer(file.data) ? file.data : Buffer.from(file.data as ArrayBuffer)
+    await putFileInStorage(key, content, 'text/html; charset=utf-8')
+    entryPoint = key
   } else {
     const buffer = Buffer.isBuffer(file.data) ? file.data : Buffer.from(file.data as ArrayBuffer)
-    let directory: Awaited<ReturnType<typeof unzipper.Open.buffer>>
+    let files: Record<string, Uint8Array>
     try {
-      directory = await unzipper.Open.buffer(buffer)
-    } catch (err) {
-      throw createError({
-        statusCode: 400,
-        message: 'Invalid or corrupted ZIP file.',
-      })
+      files = unzipSync(new Uint8Array(buffer))
+    } catch {
+      throw createError({ statusCode: 400, message: 'Invalid or corrupted ZIP file.' })
     }
-    await directory.extract({ path: uploadDir })
 
-    const htmlEntries = directory.files
-      .filter((e) => e.type !== 'Directory' && e.path.toLowerCase().endsWith('.html'))
-      .map((e) => e.path.replace(/\\/g, '/').replace(/^\/+/, ''))
+    const filePaths = Object.keys(files).filter((p) => !p.endsWith('/'))
+
+    const htmlEntries = filePaths
+      .filter((p) => p.toLowerCase().endsWith('.html'))
+      .map((p) => p.replace(/\\/g, '/').replace(/^\/+/, ''))
       .sort((a, b) => {
         if (a.toLowerCase() === 'index.html') return -1
         if (b.toLowerCase() === 'index.html') return 1
         return a.localeCompare(b)
       })
+
     const entryFile = htmlEntries[0]
     if (!entryFile) {
       throw createError({ statusCode: 400, message: 'ZIP must contain at least one .html file' })
     }
-    entryPoint = pathRelativeToStorage(path.join(uploadDir, entryFile))
+    entryPoint = `${slug}/${entryFile}`
+
+    await Promise.all(
+      filePaths.map((filePath) => {
+        const cleanPath = filePath.replace(/\\/g, '/').replace(/^\/+/, '')
+        const key = `${slug}/${cleanPath}`
+        const mimeType = mime.lookup(filePath) || 'application/octet-stream'
+        return putFileInStorage(key, files[filePath]!, mimeType)
+      })
+    )
   }
 
-  insertUpload(id, slug, entryPoint, passwordHash, ownerToken, expiresAt)
+  await insertUpload(id, slug, entryPoint, passwordHash, ownerToken, expiresAt)
 
   const baseUrl = getRequestURL(event).origin
   const url = `${baseUrl}/view/${slug}`

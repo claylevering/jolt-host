@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build output
+.output/
+.nuxt/
+dist/
+
+# Local data & storage (Docker / VPS deployment)
+data/
+storage/
+
+# Test artifacts
+test/tmp-data/
+test/tmp-storage/
+
+# Wrangler local state
+.wrangler/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

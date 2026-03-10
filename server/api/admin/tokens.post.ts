@@ -13,11 +13,11 @@ export default defineEventHandler(async (event) => {
   if (nickname.length > 64) {
     throw createError({ statusCode: 400, message: 'Nickname too long' })
   }
-  if (findApiTokenByNickname(nickname)) {
+  if (await findApiTokenByNickname(nickname)) {
     throw createError({ statusCode: 409, message: 'A token with this nickname already exists' })
   }
   const { id, raw, hash } = createTokenWithNickname(nickname)
-  insertApiToken(id, nickname, hash)
+  await insertApiToken(id, nickname, hash)
   return {
     token: raw,
     nickname,

@@ -9,10 +9,10 @@ export default defineEventHandler(async (event) => {
   if (!nickname) {
     throw createError({ statusCode: 400, message: 'Nickname is required' })
   }
-  const existing = findApiTokenByNickname(nickname)
+  const existing = await findApiTokenByNickname(nickname)
   if (!existing) {
     throw createError({ statusCode: 404, message: 'Token not found' })
   }
-  deleteApiTokenByNickname(nickname)
+  await deleteApiTokenByNickname(nickname)
   return { ok: true }
 })

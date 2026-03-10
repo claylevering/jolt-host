@@ -21,15 +21,15 @@ describe('generateSlug', () => {
 })
 
 describe('generateUniqueSlug', () => {
-  it('returns slug when it does not exist', () => {
-    const slug = generateUniqueSlug(() => false)
+  it('returns slug when it does not exist', async () => {
+    const slug = await generateUniqueSlug(async () => false)
     expect(slug).toMatch(/^[a-z]+-[a-z]+-\d+$/)
   })
 
-  it('retries until unique when exists returns true', () => {
+  it('retries until unique when exists returns true', async () => {
     const seen = new Set<string>()
     let callCount = 0
-    const slug = generateUniqueSlug((s) => {
+    const slug = await generateUniqueSlug(async (s) => {
       callCount++
       if (seen.has(s)) return true
       seen.add(s)

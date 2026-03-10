@@ -35,12 +35,12 @@ const UNLOCK_HTML = (slug: string, error?: string) => `<!DOCTYPE html>
 </body>
 </html>`
 
-export default defineEventHandler((event) => {
+export default defineEventHandler(async (event) => {
   const slug = getRouterParam(event, 'slug')
   if (!slug) {
     throw createError({ statusCode: 404, message: 'Not found' })
   }
-  const row = findUploadBySlug(slug)
+  const row = await findUploadBySlug(slug)
   if (!row || !row.password_hash) {
     return sendRedirect(event, `/view/${slug}/`, 302)
   }

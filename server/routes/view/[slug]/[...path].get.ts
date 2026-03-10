@@ -1,8 +1,8 @@
-import { getRouterParam, getQuery, setHeader, sendStream, sendRedirect } from 'h3'
-import path from 'path'
-import { createReadStream, existsSync, statSync } from 'fs'
+import { getRouterParam, getQuery, setHeader, sendRedirect } from 'h3'
+import { posix } from 'path'
 import mime from 'mime-types'
-import { getStorageDir, findUploadBySlug } from '~/server/utils/db'
+import { findUploadBySlug } from '~/server/utils/db'
+import { getFileFromStorage } from '~/server/utils/storage'
 import { isViewAuthorized, setViewAuthCookie, validateUnlockToken } from '~/server/utils/view-auth'
 import { verifyPassword } from '~/server/utils/password'
 
@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: 'Not found' })
   }
 
-  const row = findUploadBySlug(slug)
+  const row = await findUploadBySlug(slug)
   if (!row) {
     throw createError({ statusCode: 404, message: 'Paste not found' })
   }
@@ -35,25 +35,29 @@ export default defineEventHandler(async (event) => {
     return sendRedirect(event, `/view/${slug}/unlock`, 302)
   }
 
-  const storage = getStorageDir()
-  const baseDir = path.resolve(storage, path.dirname(row.entry_point))
-  const requestedPath = pathParam || ''
-  const filePath = path.resolve(baseDir, requestedPath)
+  // Compute the R2 key for the requested asset, rooted at the slug prefix.
+  // The entry_point is e.g. "quick-apple-42/index.html", so the slug's base dir is "quick-apple-42".
+  const slugPrefix = `${slug}/`
+  const rawPath = pathParam || ''
+  // Normalize to prevent path traversal (e.g. "../../etc/passwd")
+  const normalizedPath = posix.normalize(rawPath).replace(/^[./\\]+/, '')
+  const key = `${slugPrefix}${normalizedPath}`
 
-  if (!filePath.startsWith(baseDir) || !existsSync(filePath)) {
+  if (!key.startsWith(slugPrefix)) {
     throw createError({ statusCode: 404, message: 'File not found' })
   }
 
-  if (statSync(filePath).isDirectory()) {
-    const indexInDir = path.join(filePath, 'index.html')
-    if (existsSync(indexInDir)) {
-      setHeader(event, 'Content-Type', 'text/html')
-      return sendStream(event, createReadStream(indexInDir))
-    }
-    throw createError({ statusCode: 404, message: 'Not found' })
+  // Try the exact key first; if it points to a "directory", try index.html inside it
+  let blob = await getFileFromStorage(key)
+  if (!blob) {
+    const indexKey = key.endsWith('/') ? `${key}index.html` : `${key}/index.html`
+    blob = await getFileFromStorage(indexKey)
+  }
+  if (!blob) {
+    throw createError({ statusCode: 404, message: 'File not found' })
   }
 
-  const mimeType = mime.lookup(filePath) || 'application/octet-stream'
+  const mimeType = mime.lookup(key) || blob.type || 'application/octet-stream'
   setHeader(event, 'Content-Type', mimeType)
-  return sendStream(event, createReadStream(filePath))
+  return new Uint8Array(await blob.arrayBuffer())
 })

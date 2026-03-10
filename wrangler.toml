@@ -1,0 +1,23 @@
+# Cloudflare Workers / Pages configuration for jolt-host
+# Docs: https://developers.cloudflare.com/pages/functions/wrangler-configuration/
+
+name = "jolt-host"
+compatibility_date = "2025-02-18"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = ".output/public"
+
+# D1 database — replace `database_id` with your own after running:
+#   npx wrangler d1 create jolt-host
+[[d1_databases]]
+binding = "DB"
+database_name = "jolt-host"
+database_id = "00000000-0000-0000-0000-000000000000"
+
+# R2 bucket — create with: npx wrangler r2 bucket create jolt-host-blob
+[[r2_buckets]]
+binding = "BLOB"
+bucket_name = "jolt-host-blob"
+
+# Scheduled cleanup — runs every 15 minutes (maps to the Nitro cleanup-expired task)
+[triggers]
+crons = ["*/15 * * * *"]

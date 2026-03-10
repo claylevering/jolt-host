@@ -12,11 +12,7 @@ export default defineNuxtConfig({
     },
   },
   nitro: {
+    preset: 'cloudflare-pages',
     output: { dir: '.output' },
-    experimental: { tasks: true },
-    scheduledTasks: {
-      // Run cleanup every 15 minutes
-      '*/15 * * * *': ['cleanup-expired'],
-    },
   },
 })

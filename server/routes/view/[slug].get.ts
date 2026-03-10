@@ -1,8 +1,6 @@
-import { getRouterParam, getQuery, setHeader, sendStream, sendRedirect } from 'h3'
-import { join } from 'path'
-import { createReadStream, existsSync } from 'fs'
-import mime from 'mime-types'
-import { getStorageDir, findUploadBySlug } from '~/server/utils/db'
+import { getRouterParam, getQuery, setHeader, sendRedirect } from 'h3'
+import { useR2 } from '~/server/utils/cf'
+import { findUploadBySlug } from '~/server/utils/db'
 import { isViewAuthorized, setViewAuthCookie, validateUnlockToken } from '~/server/utils/view-auth'
 import { verifyPassword } from '~/server/utils/password'
 
@@ -12,7 +10,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: 'Not found' })
   }
 
-  const row = findUploadBySlug(slug)
+  const row = await findUploadBySlug(event, slug)
   if (!row) {
     throw createError({ statusCode: 404, message: 'Paste not found' })
   }
@@ -27,21 +25,14 @@ export default defineEventHandler(async (event) => {
       setViewAuthCookie(event, slug)
       return sendRedirect(event, `/view/${slug}/`, 302)
     }
-    if (passwordParam && verifyPassword(passwordParam, row.password_hash)) {
+    if (passwordParam && await verifyPassword(passwordParam, row.password_hash)) {
       setViewAuthCookie(event, slug)
       return sendRedirect(event, `/view/${slug}/`, 302)
     }
     return sendRedirect(event, `/view/${slug}/unlock`, 302)
   }
 
-  const storage = getStorageDir()
-  const filePath = join(storage, row.entry_point)
-  if (!existsSync(filePath)) {
-    throw createError({ statusCode: 404, message: 'File not found' })
-  }
-
-  // Redirect /view/slug → /view/slug/ so relative URLs in the HTML (e.g. assets/image.png)
-  // resolve to /view/slug/assets/image.png instead of /view/assets/image.png
+  // Redirect /view/slug → /view/slug/ so relative URLs in the HTML resolve correctly
   const url = getRequestURL(event)
   if (!url.pathname.endsWith('/')) {
     const location = url.pathname + '/' + (url.search || '')
@@ -49,7 +40,12 @@ export default defineEventHandler(async (event) => {
     return sendRedirect(event, location, 302)
   }
 
-  const mimeType = mime.lookup(filePath) || 'text/html'
-  setHeader(event, 'Content-Type', mimeType)
-  return sendStream(event, createReadStream(filePath))
+  const bucket = useR2(event)
+  const obj = await bucket.get(row.entry_point)
+  if (!obj) {
+    throw createError({ statusCode: 404, message: 'File not found' })
+  }
+
+  setHeader(event, 'Content-Type', obj.httpMetadata?.contentType || 'text/html')
+  return obj.body
 })

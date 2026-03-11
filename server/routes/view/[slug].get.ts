@@ -23,9 +23,8 @@ export default defineEventHandler(async (event) => {
     const passwordParam = typeof query.password === 'string' ? query.password : ''
     if (unlockParam && validateUnlockToken(slug, unlockParam)) {
       setViewAuthCookie(event, slug)
-      return sendRedirect(event, `/view/${slug}/`, 302)
-    }
-    if (passwordParam && await verifyPassword(passwordParam, row.password_hash)) {
+      // Don't redirect — keep the unlock URL in the address bar so it can be bookmarked/shared
+    } else if (passwordParam && await verifyPassword(passwordParam, row.password_hash)) {
       setViewAuthCookie(event, slug)
       return sendRedirect(event, `/view/${slug}/`, 302)
     }

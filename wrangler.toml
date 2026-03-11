@@ -7,7 +7,7 @@ pages_build_output_dir = ".output/public"
 [[d1_databases]]
 binding = "DB"
 database_name = "jolt-host-db"
-database_id = "REPLACE_WITH_YOUR_DATABASE_ID"
+database_id = "c2e689e0-d2cb-4187-84dc-1b6223ae1ee3"
 
 # ── R2 object storage ───────────────────────────────────────
 [[r2_buckets]]

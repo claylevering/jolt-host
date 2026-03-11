@@ -71,7 +71,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'Invalid expiration value' })
   }
 
-  const config = useRuntimeConfig()
+  const config = useRuntimeConfig(event)
   const maxBytes = config.jolthost?.uploadMaxBytes ?? 25 * 1024 * 1024
   const htmlBytes = new TextEncoder().encode(html).byteLength
   if (htmlBytes > maxBytes) {

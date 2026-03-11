@@ -4,7 +4,7 @@ import { setAdminCookie } from '~/server/utils/admin-auth'
 export default defineEventHandler(async (event) => {
   const body = await readBody(event).catch(() => ({}))
   const password = typeof body?.password === 'string' ? body.password : ''
-  const config = useRuntimeConfig()
+  const config = useRuntimeConfig(event)
   const adminPassword = config.jolthost?.adminPassword ?? process.env.JOLT_ADMIN_PASSWORD ?? ''
 
   if (!adminPassword) {

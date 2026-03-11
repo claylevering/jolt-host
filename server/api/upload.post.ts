@@ -82,7 +82,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const filename = (file.filename || 'file').toLowerCase()
-  const config = useRuntimeConfig()
+  const config = useRuntimeConfig(event)
   const maxBytes = config.jolthost?.uploadMaxBytes ?? 25 * 1024 * 1024
   const fileData = file.data instanceof Uint8Array ? file.data : new Uint8Array(file.data as ArrayBuffer)
   if (fileData.length > maxBytes) {

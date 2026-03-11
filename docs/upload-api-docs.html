@@ -181,6 +181,7 @@
   "url": "https://your-host.com/view/quick-dragon-42",
   "entry_point": "quick-dragon-42/index.html",
   "owner_token": "abc123...",
+  "url_with_owner_token": "https://your-host.com/view/quick-dragon-42?owner_token=abc123...",
   "url_with_unlock": "https://your-host.com/view/quick-dragon-42?unlock=TOKEN"
 }</code></pre>
     <ul>
@@ -188,6 +189,7 @@
       <li><strong>url</strong> – Public URL to view the site</li>
       <li><strong>entry_point</strong> – Path to the main HTML file</li>
       <li><strong>owner_token</strong> – Use to update password or expiration via <code>/api/paste/[slug]/password</code> and <code>/api/paste/[slug]/expiration</code></li>
+      <li><strong>url_with_owner_token</strong> – Full URL with owner token in query; convenient for bookmarking or passing to management APIs</li>
       <li><strong>url_with_unlock</strong> – (when password provided) Shareable URL with a signed token; visiting it unlocks the page automatically. Token expires when the paste expires (or in 30 days if no expiration). The password is never shown in the URL.</li>
     </ul>
 

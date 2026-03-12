@@ -88,6 +88,17 @@ See [.env.example](.env.example). Main options:
 | `JOLT_WEB_SECRET` | Secret for web upload session cookie. |
 | `NUXT_JOLTHOST_UPLOAD_MAX_BYTES` | Max upload size in bytes (default 25MB). |
 
+### Cloudflare Pages
+
+For deployments via `wrangler pages deploy`, the admin password is **not** in `wrangler.toml` (so it isn’t committed). Set it as a Pages secret so the Worker receives it at runtime:
+
+```bash
+# One-time: set the secret (you’ll be prompted to paste the value, or pipe it)
+echo -n 'YOUR_ADMIN_PASSWORD' | pnpm wrangler pages secret put JOLT_ADMIN_PASSWORD --project-name=jolt-host
+```
+
+Use **Production** (and **Preview** if you use preview deployments). Alternatively set `JOLT_ADMIN_PASSWORD` under **Workers & Pages** → **jolt-host** → **Settings** → **Environment variables** in the Cloudflare dashboard. No redeploy needed for a new secret; the next request will use it. Redeploy if you changed code.
+
 ## Docker / VPS deployment
 
 Build and run with Docker (data and uploads persist in named volumes):

@@ -4,10 +4,12 @@ compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = ".output"
 
 # ── D1 database ──────────────────────────────────────────────
+# database_id is templated at deploy time from the CF_D1_DATABASE_ID secret.
+# For local dev: copy wrangler.toml.example or set your own ID below.
 [[d1_databases]]
 binding = "DB"
 database_name = "jolt-host-db"
-database_id = "c2e689e0-d2cb-4187-84dc-1b6223ae1ee3"
+database_id = "${CF_D1_DATABASE_ID}"
 
 # ── R2 object storage ───────────────────────────────────────
 [[r2_buckets]]

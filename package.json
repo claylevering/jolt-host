@@ -19,7 +19,9 @@
   "dependencies": {
     "fflate": "^0.8.2",
     "mime-types": "^2.1.35",
-    "nuxt": "^3.14.1590"
+    "notivue": "^2.4.5",
+    "nuxt": "^3.14.1590",
+    "unzipper": "^0.12.3"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241230.0",

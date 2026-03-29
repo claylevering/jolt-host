@@ -35,7 +35,7 @@ const queryKey = computed(
   () => `admin-uploads-${page.value}-${dateFrom.value}-${dateTo.value}-${protectedFilter.value}`
 )
 
-const { data: result, error, refresh } = await useFetch<UploadsResponse>('/api/admin/uploads', {
+const { data: result, error, refresh, pending } = await useFetch<UploadsResponse>('/api/admin/uploads', {
   query: queryParams,
   key: queryKey,
 })
@@ -193,7 +193,7 @@ type UsersResponse = {
 }
 
 const usersPage = ref(1)
-const { data: usersData, refresh: refreshUsers } = await useFetch<UsersResponse>('/api/admin/users', {
+const { data: usersData, refresh: refreshUsers, pending: pendingUsers } = await useFetch<UsersResponse>('/api/admin/users', {
   query: computed(() => ({ page: usersPage.value, limit: 20 })),
   key: computed(() => `admin-users-${usersPage.value}`),
 })
@@ -332,6 +332,15 @@ async function deleteUser(id: string, name: string) {
     alert('Failed to delete user')
   }
 }
+
+const activeTab = ref<'uploads' | 'tokens' | 'users'>('uploads')
+
+const openMenuId = ref<string | null>(null)
+function toggleMenu(id: string) {
+  openMenuId.value = openMenuId.value === id ? null : id
+}
+onMounted(() => document.addEventListener('click', () => { openMenuId.value = null }))
+onUnmounted(() => document.removeEventListener('click', () => { openMenuId.value = null }))
 </script>
 
 <template>
@@ -342,17 +351,121 @@ async function deleteUser(id: string, name: string) {
         <button type="button" class="logout-btn" @click="logout">Log out</button>
       </div>
 
-      <section class="section">
-        <h2 class="section-title">API tokens</h2>
+      <!-- Tabs -->
+      <div class="tabs">
+        <button type="button" class="tab-btn" :class="{ active: activeTab === 'uploads' }" @click="activeTab = 'uploads'">
+          Uploads
+        </button>
+        <button type="button" class="tab-btn" :class="{ active: activeTab === 'tokens' }" @click="activeTab = 'tokens'">
+          API Tokens
+        </button>
+        <button type="button" class="tab-btn" :class="{ active: activeTab === 'users' }" @click="activeTab = 'users'">
+          Users
+        </button>
+      </div>
+
+      <!-- Uploads tab -->
+      <section v-if="activeTab === 'uploads'" class="section">
+        <div class="filters">
+          <div class="filter-row">
+            <div class="filter-group">
+              <label for="dateFrom" class="filter-label">From date</label>
+              <input id="dateFrom" v-model="dateFrom" type="date" class="filter-input" @change="applyFilters" />
+            </div>
+            <div class="filter-group">
+              <label for="dateTo" class="filter-label">To date</label>
+              <input id="dateTo" v-model="dateTo" type="date" class="filter-input" @change="applyFilters" />
+            </div>
+            <div class="filter-group">
+              <label for="protected" class="filter-label">Password protected</label>
+              <select id="protected" v-model="protectedFilter" class="filter-select" @change="applyFilters">
+                <option value="all">All</option>
+                <option value="yes">Protected only</option>
+                <option value="no">Unprotected only</option>
+              </select>
+            </div>
+            <button type="button" class="filter-btn" @click="applyFilters">Apply filters</button>
+          </div>
+        </div>
+
+        <div v-if="!pending && uploads.length === 0 && result" class="empty">No uploads match your filters.</div>
+
+        <div v-else-if="uploads.length > 0" class="uploads-section">
+          <div class="pagination-bar">
+            <span class="pagination-info">Showing {{ startItem }}–{{ endItem }} of {{ total }}</span>
+            <div class="pagination-controls">
+              <button type="button" class="pagination-btn" :disabled="currentPage <= 1" title="First page" @click="goToPage(1)">««</button>
+              <button type="button" class="pagination-btn" :disabled="currentPage <= 1" @click="goToPage(currentPage - 1)">‹ Previous</button>
+              <span class="pagination-pages">Page {{ currentPage }} of {{ totalPages }}</span>
+              <button type="button" class="pagination-btn" :disabled="currentPage >= totalPages" @click="goToPage(currentPage + 1)">Next ›</button>
+              <button type="button" class="pagination-btn" :disabled="currentPage >= totalPages" title="Last page" @click="goToPage(totalPages)">»»</button>
+            </div>
+          </div>
+          <div class="table-container">
+            <table class="uploads-table">
+              <thead>
+                <tr>
+                  <th class="col-slug">Slug</th>
+                  <th class="col-url">URL</th>
+                  <th class="col-date">Created</th>
+                  <th class="col-protected">Protected</th>
+                  <th class="col-expires">Expires</th>
+                  <th class="col-actions">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(u, idx) in uploads" :key="u.id" :class="{ 'row-alt': idx % 2 === 1 }">
+                  <td class="col-slug"><code class="slug-cell">{{ u.slug }}</code></td>
+                  <td class="col-url">
+                    <a :href="u.url" target="_blank" rel="noopener" class="url-link" :title="u.url">View</a>
+                  </td>
+                  <td class="col-date muted">{{ formatDate(u.created_at) }}</td>
+                  <td class="col-protected">
+                    <span :class="['badge', u.has_password ? 'badge-yes' : 'badge-no']">{{ u.has_password ? 'Yes' : 'No' }}</span>
+                  </td>
+                  <td class="col-expires muted">{{ u.expires_at ? formatDate(u.expires_at) : '—' }}</td>
+                  <td class="col-actions">
+                    <template v-if="editingPassword === u.slug">
+                      <input v-model="newPassword" type="password" class="inline-input" placeholder="New password (empty to remove)" @keydown.enter="updatePassword(u.slug)" />
+                      <button type="button" class="action-btn" @click="updatePassword(u.slug)">Save</button>
+                      <button type="button" class="action-btn muted" @click="editingPassword = null">Cancel</button>
+                    </template>
+                    <template v-else>
+                      <div class="menu-wrapper">
+                        <button type="button" class="meatball-btn" @click.stop="toggleMenu(u.id)">⋯</button>
+                        <div v-if="openMenuId === u.id" class="menu-dropdown">
+                          <button type="button" class="menu-item" @click="startEditPassword(u.slug); openMenuId = null">{{ u.has_password ? 'Change password' : 'Set password' }}</button>
+                          <button type="button" class="menu-item danger" @click="deletePaste(u.slug); openMenuId = null">Delete</button>
+                        </div>
+                      </div>
+                    </template>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="pagination-bar">
+            <span class="pagination-info">Showing {{ startItem }}–{{ endItem }} of {{ total }}</span>
+            <div class="pagination-controls">
+              <button type="button" class="pagination-btn" :disabled="currentPage <= 1" title="First page" @click="goToPage(1)">««</button>
+              <button type="button" class="pagination-btn" :disabled="currentPage <= 1" @click="goToPage(currentPage - 1)">‹ Previous</button>
+              <span class="pagination-pages">Page {{ currentPage }} of {{ totalPages }}</span>
+              <button type="button" class="pagination-btn" :disabled="currentPage >= totalPages" @click="goToPage(currentPage + 1)">Next ›</button>
+              <button type="button" class="pagination-btn" :disabled="currentPage >= totalPages" title="Last page" @click="goToPage(totalPages)">»»</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- API Tokens tab -->
+      <section v-if="activeTab === 'tokens'" class="section">
         <p class="section-desc">Generate tokens for programmatic uploads. Use the header: <code>Authorization: Bearer &lt;token&gt;</code></p>
 
         <div v-if="newlyCreatedToken" class="token-reveal">
           <p class="token-warning">Copy this token now. It will not be shown again.</p>
           <div class="token-display">
             <code class="token-value">{{ newlyCreatedToken.token }}</code>
-            <button type="button" class="copy-token-btn" @click="copyToken">
-              {{ tokenCopied ? 'Copied!' : 'Copy' }}
-            </button>
+            <button type="button" class="copy-token-btn" @click="copyToken">{{ tokenCopied ? 'Copied!' : 'Copy' }}</button>
           </div>
           <button type="button" class="dismiss-token-btn" @click="dismissNewToken">I've copied it</button>
         </div>
@@ -366,12 +479,7 @@ async function deleteUser(id: string, name: string) {
             :disabled="tokenCreating"
             @keydown.enter="createToken"
           />
-          <button
-            type="button"
-            class="create-token-btn"
-            :disabled="!tokenNickname.trim() || tokenCreating"
-            @click="createToken"
-          >
+          <button type="button" class="create-token-btn" :disabled="!tokenNickname.trim() || tokenCreating" @click="createToken">
             {{ tokenCreating ? 'Creating…' : 'Generate token' }}
           </button>
         </div>
@@ -387,158 +495,15 @@ async function deleteUser(id: string, name: string) {
         <div v-else-if="!newlyCreatedToken" class="token-empty muted">No API tokens yet.</div>
       </section>
 
-      <h2 class="section-title">Uploads</h2>
-      <div class="filters">
-        <div class="filter-row">
-          <div class="filter-group">
-            <label for="dateFrom" class="filter-label">From date</label>
-            <input
-              id="dateFrom"
-              v-model="dateFrom"
-              type="date"
-              class="filter-input"
-              @change="applyFilters"
-            />
-          </div>
-          <div class="filter-group">
-            <label for="dateTo" class="filter-label">To date</label>
-            <input
-              id="dateTo"
-              v-model="dateTo"
-              type="date"
-              class="filter-input"
-              @change="applyFilters"
-            />
-          </div>
-          <div class="filter-group">
-            <label for="protected" class="filter-label">Password protected</label>
-            <select
-              id="protected"
-              v-model="protectedFilter"
-              class="filter-select"
-              @change="applyFilters"
-            >
-              <option value="all">All</option>
-              <option value="yes">Protected only</option>
-              <option value="no">Unprotected only</option>
-            </select>
-          </div>
-          <button type="button" class="filter-btn" @click="applyFilters">Apply filters</button>
-        </div>
-      </div>
-
-      <div v-if="uploads.length === 0 && result" class="empty">
-        No uploads match your filters.
-      </div>
-
-      <div v-else-if="uploads.length > 0" class="uploads-section">
-        <div class="table-container">
-          <table class="uploads-table">
-            <thead>
-              <tr>
-                <th class="col-slug">Slug</th>
-                <th class="col-url">URL</th>
-                <th class="col-date">Created</th>
-                <th class="col-protected">Protected</th>
-                <th class="col-expires">Expires</th>
-                <th class="col-actions">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(u, idx) in uploads" :key="u.id" :class="{ 'row-alt': idx % 2 === 1 }">
-                <td class="col-slug">
-                  <code class="slug-cell">{{ u.slug }}</code>
-                </td>
-                <td class="col-url">
-                  <a :href="u.url" target="_blank" rel="noopener" class="url-link" :title="u.url">{{ u.url }}</a>
-                </td>
-                <td class="col-date muted">{{ formatDate(u.created_at) }}</td>
-                <td class="col-protected">
-                  <span :class="['badge', u.has_password ? 'badge-yes' : 'badge-no']">
-                    {{ u.has_password ? 'Yes' : 'No' }}
-                  </span>
-                </td>
-                <td class="col-expires muted">{{ u.expires_at ? formatDate(u.expires_at) : '—' }}</td>
-                <td class="col-actions">
-                  <template v-if="editingPassword === u.slug">
-                    <input
-                      v-model="newPassword"
-                      type="password"
-                      class="inline-input"
-                      placeholder="New password (empty to remove)"
-                      @keydown.enter="updatePassword(u.slug)"
-                    />
-                    <button type="button" class="action-btn" @click="updatePassword(u.slug)">Save</button>
-                    <button type="button" class="action-btn muted" @click="editingPassword = null">Cancel</button>
-                  </template>
-                  <template v-else>
-                    <button type="button" class="action-btn" @click="startEditPassword(u.slug)">
-                      {{ u.has_password ? 'Change' : 'Set' }}
-                    </button>
-                    <button type="button" class="action-btn danger" @click="deletePaste(u.slug)">Delete</button>
-                  </template>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="pagination-bar">
-          <span class="pagination-info">
-            Showing {{ startItem }}-{{ endItem }} of {{ total }}
-          </span>
-          <div class="pagination-controls">
-            <button
-              type="button"
-              class="pagination-btn"
-              :disabled="currentPage <= 1"
-              title="First page"
-              @click="goToPage(1)"
-            >
-              ««
-            </button>
-            <button
-              type="button"
-              class="pagination-btn"
-              :disabled="currentPage <= 1"
-              @click="goToPage(currentPage - 1)"
-            >
-              ‹ Previous
-            </button>
-            <span class="pagination-pages">
-              Page {{ currentPage }} of {{ totalPages }}
-            </span>
-            <button
-              type="button"
-              class="pagination-btn"
-              :disabled="currentPage >= totalPages"
-              @click="goToPage(currentPage + 1)"
-            >
-              Next ›
-            </button>
-            <button
-              type="button"
-              class="pagination-btn"
-              :disabled="currentPage >= totalPages"
-              title="Last page"
-              @click="goToPage(totalPages)"
-            >
-              »»
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Users section -->
-      <section class="section">
+      <!-- Users tab -->
+      <section v-if="activeTab === 'users'" class="section">
         <div class="section-header-row">
-          <h2 class="section-title">Users</h2>
+          <span />
           <button type="button" class="create-token-btn" @click="showAddUser = !showAddUser">
             {{ showAddUser ? 'Cancel' : 'Add user' }}
           </button>
         </div>
 
-        <!-- Add user form -->
         <div v-if="showAddUser" class="add-user-form">
           <div class="add-user-fields">
             <input v-model="addUserName" type="text" class="token-nickname-input" placeholder="Name" :disabled="addUserLoading" />
@@ -561,10 +526,20 @@ async function deleteUser(id: string, name: string) {
           <p v-if="addUserError" class="token-error">{{ addUserError }}</p>
         </div>
 
-        <div v-if="users.length === 0 && usersData" class="token-empty muted">No users yet.</div>
+        <div v-if="!pendingUsers && users.length === 0 && usersData" class="token-empty muted">No users yet.</div>
 
         <div v-else-if="users.length > 0">
-          <div class="table-container" style="margin-top:1rem">
+          <div class="pagination-bar">
+            <span class="pagination-info">Showing {{ usersStartItem }}–{{ usersEndItem }} of {{ usersTotal }}</span>
+            <div class="pagination-controls">
+              <button type="button" class="pagination-btn" :disabled="usersCurrentPage <= 1" title="First page" @click="goToUsersPage(1)">««</button>
+              <button type="button" class="pagination-btn" :disabled="usersCurrentPage <= 1" @click="goToUsersPage(usersCurrentPage - 1)">‹ Previous</button>
+              <span class="pagination-pages">Page {{ usersCurrentPage }} of {{ usersTotalPages }}</span>
+              <button type="button" class="pagination-btn" :disabled="usersCurrentPage >= usersTotalPages" @click="goToUsersPage(usersCurrentPage + 1)">Next ›</button>
+              <button type="button" class="pagination-btn" :disabled="usersCurrentPage >= usersTotalPages" title="Last page" @click="goToUsersPage(usersTotalPages)">»»</button>
+            </div>
+          </div>
+          <div class="table-container">
             <table class="uploads-table">
               <thead>
                 <tr>
@@ -577,72 +552,92 @@ async function deleteUser(id: string, name: string) {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(u, idx) in users" :key="u.id" :class="{ 'row-alt': idx % 2 === 1 }">
-                  <!-- Edit inline -->
-                  <template v-if="editingUserId === u.id">
-                    <td colspan="5">
-                      <div class="inline-edit-form">
-                        <input v-model="editUserName" type="text" class="inline-input" placeholder="Name" :disabled="editUserLoading" />
-                        <input v-model="editUserEmail" type="email" class="inline-input" placeholder="Email" :disabled="editUserLoading" />
-                        <input v-model="editUserMaxMb" type="number" min="1" class="inline-input" placeholder="Limit MB (empty=default)" :disabled="editUserLoading" style="width:160px" />
-                        <label class="checkbox-label">
-                          <input v-model="editUserNeverExpire" type="checkbox" :disabled="editUserLoading" />
-                          Never expire
-                        </label>
-                        <button type="button" class="action-btn" :disabled="editUserLoading" @click="saveEditUser(u.id)">Save</button>
-                        <button type="button" class="action-btn muted" @click="editingUserId = null">Cancel</button>
-                        <p v-if="editUserError" class="inline-row-error">{{ editUserError }}</p>
-                      </div>
-                    </td>
-                    <td></td>
-                  </template>
-                  <!-- Reset password inline -->
-                  <template v-else-if="resetPasswordUserId === u.id">
-                    <td colspan="5">
-                      <div class="inline-edit-form">
-                        <input
-                          v-model="resetPasswordValue"
-                          type="password"
-                          class="inline-input"
-                          placeholder="New password"
-                          :disabled="resetPasswordLoading"
-                          @keydown.enter="saveResetPassword(u.id)"
-                        />
-                        <button type="button" class="action-btn" :disabled="resetPasswordLoading || !resetPasswordValue" @click="saveResetPassword(u.id)">Save</button>
-                        <button type="button" class="action-btn muted" @click="resetPasswordUserId = null">Cancel</button>
-                        <p v-if="resetPasswordError" class="inline-row-error">{{ resetPasswordError }}</p>
-                      </div>
-                    </td>
-                    <td></td>
-                  </template>
-                  <!-- Normal row -->
-                  <template v-else>
+                <template v-for="(u, idx) in users" :key="u.id">
+                  <!-- Data row — always visible -->
+                  <tr :class="{ 'row-alt': idx % 2 === 1, 'row-expanded': editingUserId === u.id || resetPasswordUserId === u.id }">
                     <td>{{ u.name }}</td>
                     <td class="muted">{{ u.email }}</td>
                     <td class="muted">{{ u.upload_max_bytes ? `${Math.round(u.upload_max_bytes / 1024 / 1024)} MB` : 'Default' }}</td>
                     <td>
-                      <span :class="['badge', u.never_expire ? 'badge-yes' : 'badge-no']">
-                        {{ u.never_expire ? 'Yes' : 'No' }}
-                      </span>
+                      <span :class="['badge', u.never_expire ? 'badge-yes' : 'badge-no']">{{ u.never_expire ? 'Yes' : 'No' }}</span>
                     </td>
                     <td class="muted">{{ formatDate(u.created_at) }}</td>
                     <td class="col-actions">
-                      <div class="actions">
-                        <button type="button" class="action-btn" @click="startEditUser(u)">Edit</button>
-                        <button type="button" class="action-btn" @click="startResetPassword(u.id)">Reset PW</button>
-                        <button type="button" class="action-btn danger" @click="deleteUser(u.id, u.name)">Delete</button>
+                      <div class="menu-wrapper">
+                        <button type="button" class="meatball-btn" :class="{ 'meatball-btn--active': editingUserId === u.id || resetPasswordUserId === u.id }" @click.stop="toggleMenu(u.id)">⋯</button>
+                        <div v-if="openMenuId === u.id" class="menu-dropdown">
+                          <button type="button" class="menu-item" @click="editingUserId === u.id ? (editingUserId = null) : (resetPasswordUserId = null, startEditUser(u)); openMenuId = null">{{ editingUserId === u.id ? 'Cancel edit' : 'Edit user' }}</button>
+                          <button type="button" class="menu-item" @click="resetPasswordUserId === u.id ? (resetPasswordUserId = null) : (editingUserId = null, startResetPassword(u.id)); openMenuId = null">{{ resetPasswordUserId === u.id ? 'Cancel reset' : 'Reset password' }}</button>
+                          <button type="button" class="menu-item danger" @click="deleteUser(u.id, u.name); openMenuId = null">Delete</button>
+                        </div>
                       </div>
                     </td>
-                  </template>
-                </tr>
+                  </tr>
+                  <!-- Edit expansion row -->
+                  <tr v-if="editingUserId === u.id" class="expansion-row">
+                    <td colspan="6">
+                      <div class="expansion-form">
+                        <div class="expansion-fields">
+                          <div class="expansion-field">
+                            <label class="expansion-label">Name</label>
+                            <input v-model="editUserName" type="text" class="inline-input" placeholder="Name" :disabled="editUserLoading" />
+                          </div>
+                          <div class="expansion-field">
+                            <label class="expansion-label">Email</label>
+                            <input v-model="editUserEmail" type="email" class="inline-input" placeholder="Email" :disabled="editUserLoading" />
+                          </div>
+                          <div class="expansion-field">
+                            <label class="expansion-label">Upload limit (MB)</label>
+                            <input v-model="editUserMaxMb" type="number" min="1" class="inline-input" placeholder="Empty = default" :disabled="editUserLoading" style="width:140px" />
+                          </div>
+                          <div class="expansion-field">
+                            <label class="expansion-label">&nbsp;</label>
+                            <label class="checkbox-label">
+                              <input v-model="editUserNeverExpire" type="checkbox" :disabled="editUserLoading" />
+                              Never expire
+                            </label>
+                          </div>
+                        </div>
+                        <div class="expansion-actions">
+                          <button type="button" class="action-btn" :disabled="editUserLoading" @click="saveEditUser(u.id)">{{ editUserLoading ? 'Saving…' : 'Save changes' }}</button>
+                          <button type="button" class="action-btn muted" @click="editingUserId = null">Cancel</button>
+                          <p v-if="editUserError" class="inline-row-error">{{ editUserError }}</p>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                  <!-- Reset password expansion row -->
+                  <tr v-if="resetPasswordUserId === u.id" class="expansion-row">
+                    <td colspan="6">
+                      <div class="expansion-form">
+                        <div class="expansion-fields">
+                          <div class="expansion-field">
+                            <label class="expansion-label">New password</label>
+                            <input
+                              v-model="resetPasswordValue"
+                              type="password"
+                              class="inline-input"
+                              placeholder="New password"
+                              :disabled="resetPasswordLoading"
+                              @keydown.enter="saveResetPassword(u.id)"
+                            />
+                          </div>
+                        </div>
+                        <div class="expansion-actions">
+                          <button type="button" class="action-btn" :disabled="resetPasswordLoading || !resetPasswordValue" @click="saveResetPassword(u.id)">{{ resetPasswordLoading ? 'Saving…' : 'Reset password' }}</button>
+                          <button type="button" class="action-btn muted" @click="resetPasswordUserId = null">Cancel</button>
+                          <p v-if="resetPasswordError" class="inline-row-error">{{ resetPasswordError }}</p>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
               </tbody>
             </table>
           </div>
 
           <div class="pagination-bar">
-            <span class="pagination-info">
-              Showing {{ usersStartItem }}–{{ usersEndItem }} of {{ usersTotal }}
-            </span>
+            <span class="pagination-info">Showing {{ usersStartItem }}–{{ usersEndItem }} of {{ usersTotal }}</span>
             <div class="pagination-controls">
               <button type="button" class="pagination-btn" :disabled="usersCurrentPage <= 1" title="First page" @click="goToUsersPage(1)">««</button>
               <button type="button" class="pagination-btn" :disabled="usersCurrentPage <= 1" @click="goToUsersPage(usersCurrentPage - 1)">‹ Previous</button>
@@ -662,10 +657,7 @@ async function deleteUser(id: string, name: string) {
 <style scoped>
 .page {
   width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
+  align-self: flex-start;
 }
 .dashboard {
   width: 100%;
@@ -893,6 +885,9 @@ async function deleteUser(id: string, name: string) {
 }
 .uploads-section {
   margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 .table-container {
   overflow-x: auto;
@@ -938,7 +933,65 @@ async function deleteUser(id: string, name: string) {
 .col-date { min-width: 140px; white-space: nowrap; }
 .col-protected { min-width: 85px; }
 .col-expires { min-width: 140px; white-space: nowrap; }
-.col-actions { min-width: 160px; }
+.col-actions { min-width: 60px; text-align: center; }
+.menu-wrapper {
+  position: relative;
+  display: inline-block;
+}
+.meatball-btn {
+  padding: 0.3rem 0.6rem;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: #71717a;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  letter-spacing: 0.05em;
+}
+.meatball-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #e4e4e7;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.meatball-btn--active {
+  background: rgba(167, 139, 250, 0.12);
+  border-color: rgba(167, 139, 250, 0.35);
+  color: #c4b5fd;
+}
+.menu-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 200;
+  background: #1c1c24;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  min-width: 150px;
+  padding: 0.25rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+.menu-item {
+  display: block;
+  width: 100%;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.85rem;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  color: #e4e4e7;
+  cursor: pointer;
+}
+.menu-item:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+.menu-item.danger {
+  color: #f87171;
+}
+.menu-item.danger:hover {
+  background: rgba(248, 113, 113, 0.1);
+}
 .slug-cell {
   font-size: 0.85rem;
   background: rgba(255, 255, 255, 0.06);
@@ -975,12 +1028,6 @@ async function deleteUser(id: string, name: string) {
 }
 .muted {
   color: #71717a;
-}
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
 }
 .inline-input {
   padding: 0.35rem 0.5rem;
@@ -1067,10 +1114,74 @@ async function deleteUser(id: string, name: string) {
 .back-link:hover {
   color: #a78bfa;
 }
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 0;
+}
+.tab-btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.95rem;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #a1a1aa;
+  cursor: pointer;
+  margin-bottom: -1px;
+}
+.tab-btn:hover {
+  color: #e4e4e7;
+}
+.tab-btn.active {
+  color: #c4b5fd;
+  border-bottom-color: #a78bfa;
+}
+.action-btn.active {
+  background: rgba(167, 139, 250, 0.35);
+  border-color: rgba(167, 139, 250, 0.7);
+}
+.row-expanded td {
+  border-bottom: none;
+}
+.expansion-row td {
+  padding: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.expansion-form {
+  padding: 0.75rem 1rem 1rem;
+  background: rgba(167, 139, 250, 0.04);
+  border-top: 1px solid rgba(167, 139, 250, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.expansion-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+}
+.expansion-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.expansion-label {
+  font-size: 0.75rem;
+  color: #71717a;
+}
+.expansion-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
 .section-header-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   margin-bottom: 0.75rem;
 }
 .section-header-row .section-title {

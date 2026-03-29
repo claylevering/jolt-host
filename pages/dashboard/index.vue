@@ -79,6 +79,13 @@ function buildUrl(slug: string) {
   return `/view/${slug}`
 }
 
+const openMenuSlug = ref<string | null>(null)
+function toggleMenu(slug: string) {
+  openMenuSlug.value = openMenuSlug.value === slug ? null : slug
+}
+onMounted(() => document.addEventListener('click', () => { openMenuSlug.value = null }))
+onUnmounted(() => document.removeEventListener('click', () => { openMenuSlug.value = null }))
+
 // --- Per-row inline actions ---
 const editingPasswordSlug = ref<string | null>(null)
 const inlinePassword = ref('')
@@ -128,29 +135,52 @@ const expiryOptions = computed(() => {
   return opts
 })
 
-function startEditExpiry(slug: string) {
-  editingExpirySlug.value = slug
-  inlineExpiry.value = '1h'
-  expiryError.value = null
+const EXPIRY_OPTIONS_MS: Record<string, number> = {
+  '1h':  1 * 60 * 60 * 1000,
+  '8h':  8 * 60 * 60 * 1000,
+  '24h': 24 * 60 * 60 * 1000,
+  '1w':  7 * 24 * 60 * 60 * 1000,
 }
 
-function computeExpiresAt(val: string): string | null {
-  if (val === 'never') return null
-  const now = Date.now()
-  const map: Record<string, number> = {
-    '1h': 1 * 60 * 60 * 1000,
-    '8h': 8 * 60 * 60 * 1000,
-    '24h': 24 * 60 * 60 * 1000,
-    '1w': 7 * 24 * 60 * 60 * 1000,
+function guessExpiryOption(createdAt: string, expiresAt: string | null): string {
+  if (!expiresAt) return 'never'
+  const diff = new Date(expiresAt).getTime() - new Date(createdAt).getTime()
+  let closest = '1h'
+  let closestDelta = Infinity
+  for (const [key, ms] of Object.entries(EXPIRY_OPTIONS_MS)) {
+    const delta = Math.abs(diff - ms)
+    if (delta < closestDelta) { closestDelta = delta; closest = key }
   }
-  return new Date(now + (map[val] ?? 0)).toISOString()
+  return closest
+}
+
+function getExpiryLabel(createdAt: string, expiresAt: string | null): string {
+  if (!expiresAt) return 'Never'
+  const diff = new Date(expiresAt).getTime() - new Date(createdAt).getTime()
+  const labels: Record<string, string> = {
+    '1h': '1 hour', '8h': '8 hours', '24h': '24 hours', '1w': '1 week',
+  }
+  let closest = '1h'
+  let closestDelta = Infinity
+  for (const [key, ms] of Object.entries(EXPIRY_OPTIONS_MS)) {
+    const delta = Math.abs(diff - ms)
+    if (delta < closestDelta) { closestDelta = delta; closest = key }
+  }
+  // Only show label if it's a close match (within 5 minutes)
+  return closestDelta < 5 * 60 * 1000 ? labels[closest] : formatDate(expiresAt)
+}
+
+function startEditExpiry(slug: string, upload: UploadRow) {
+  editingExpirySlug.value = slug
+  inlineExpiry.value = guessExpiryOption(upload.created_at, upload.expires_at)
+  expiryError.value = null
 }
 
 async function saveExpiry(slug: string) {
   expirySaving.value = true
   expiryError.value = null
   try {
-    const expiresAt = computeExpiresAt(inlineExpiry.value)
+    const expiresAt = inlineExpiry.value === 'never' ? null : inlineExpiry.value
     await $fetch(`/api/user/uploads/${slug}/expiration`, {
       method: 'POST',
       body: { expiresAt },
@@ -239,6 +269,16 @@ async function changePassword() {
         </div>
 
         <div v-else-if="uploads.length > 0" class="uploads-section">
+          <div class="pagination-bar">
+            <span class="pagination-info">Showing {{ uploadsStartItem }}–{{ uploadsEndItem }} of {{ uploadsTotal }}</span>
+            <div class="pagination-controls">
+              <button type="button" class="pagination-btn" :disabled="uploadsCurrentPage <= 1" title="First page" @click="goToUploadsPage(1)">««</button>
+              <button type="button" class="pagination-btn" :disabled="uploadsCurrentPage <= 1" @click="goToUploadsPage(uploadsCurrentPage - 1)">‹ Previous</button>
+              <span class="pagination-pages">Page {{ uploadsCurrentPage }} of {{ uploadsTotalPages }}</span>
+              <button type="button" class="pagination-btn" :disabled="uploadsCurrentPage >= uploadsTotalPages" @click="goToUploadsPage(uploadsCurrentPage + 1)">Next ›</button>
+              <button type="button" class="pagination-btn" :disabled="uploadsCurrentPage >= uploadsTotalPages" title="Last page" @click="goToUploadsPage(uploadsTotalPages)">»»</button>
+            </div>
+          </div>
           <div class="table-container">
             <table class="uploads-table">
               <thead>
@@ -253,12 +293,16 @@ async function changePassword() {
               <tbody>
                 <tr v-for="(u, idx) in uploads" :key="u.slug" :class="{ 'row-alt': idx % 2 === 1 }">
                   <td class="col-url">
-                    <a :href="buildUrl(u.slug)" target="_blank" rel="noopener" class="url-link">
-                      {{ buildUrl(u.slug) }}
-                    </a>
+                    <a :href="buildUrl(u.slug)" target="_blank" rel="noopener" class="url-link" :title="buildUrl(u.slug)">View</a>
                   </td>
                   <td class="col-date muted">{{ formatDate(u.created_at) }}</td>
-                  <td class="col-expires muted">{{ u.expires_at ? formatDate(u.expires_at) : '—' }}</td>
+                  <td class="col-expires muted">
+                    <span v-if="u.expires_at">
+                      {{ getExpiryLabel(u.created_at, u.expires_at) }}
+                      <span class="expiry-date">({{ formatDate(u.expires_at) }})</span>
+                    </span>
+                    <span v-else>Never</span>
+                  </td>
                   <td class="col-protected">
                     <span :class="['badge', u.password_hash ? 'badge-yes' : 'badge-no']">
                       {{ u.password_hash ? 'Yes' : 'No' }}
@@ -307,13 +351,12 @@ async function changePassword() {
                     </template>
                     <!-- Default actions -->
                     <template v-else>
-                      <div class="action-row">
-                        <button type="button" class="action-btn" @click="startEditPassword(u.slug)">
-                          Change Password
-                        </button>
-                        <button type="button" class="action-btn" @click="startEditExpiry(u.slug)">
-                          Change Expiry
-                        </button>
+                      <div class="menu-wrapper">
+                        <button type="button" class="meatball-btn" @click.stop="toggleMenu(u.slug)">⋯</button>
+                        <div v-if="openMenuSlug === u.slug" class="menu-dropdown">
+                          <button type="button" class="menu-item" @click="startEditPassword(u.slug); openMenuSlug = null">Change password</button>
+                          <button type="button" class="menu-item" @click="startEditExpiry(u.slug, u); openMenuSlug = null">Change expiry</button>
+                        </div>
                       </div>
                     </template>
                   </td>
@@ -423,10 +466,7 @@ async function changePassword() {
 <style scoped>
 .page {
   width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
+  align-self: flex-start;
 }
 .dashboard {
   width: 100%;
@@ -502,6 +542,9 @@ async function changePassword() {
 }
 .uploads-section {
   margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 .table-container {
   overflow-x: auto;
@@ -542,6 +585,65 @@ async function changePassword() {
 .uploads-table tbody tr.row-alt:hover {
   background: rgba(255, 255, 255, 0.04);
 }
+.expiry-date {
+  display: block;
+  font-size: 0.75rem;
+  color: #52525b;
+}
+.col-actions { min-width: 60px; text-align: center; }
+.menu-wrapper {
+  position: relative;
+  display: inline-block;
+}
+.meatball-btn {
+  padding: 0.3rem 0.6rem;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: #71717a;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  letter-spacing: 0.05em;
+}
+.meatball-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #e4e4e7;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.menu-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 200;
+  background: #1c1c24;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  min-width: 150px;
+  padding: 0.25rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+.menu-item {
+  display: block;
+  width: 100%;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.85rem;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  color: #e4e4e7;
+  cursor: pointer;
+}
+.menu-item:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+.menu-item.danger {
+  color: #f87171;
+}
+.menu-item.danger:hover {
+  background: rgba(248, 113, 113, 0.1);
+}
 .col-url { min-width: 200px; }
 .col-date { min-width: 140px; white-space: nowrap; }
 .col-expires { min-width: 140px; white-space: nowrap; }
@@ -573,12 +675,6 @@ async function changePassword() {
 .badge-no {
   background: rgba(255, 255, 255, 0.08);
   color: #71717a;
-}
-.action-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
 }
 .inline-form {
   display: flex;

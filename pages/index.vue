@@ -264,7 +264,7 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <a href="https://www.buymeacoffee.com/harrymeas" target="_blank" rel="noopener" class="bmc-link">
+    <a v-if="$config.public.showBuyMeACoffee" href="https://www.buymeacoffee.com/harrymeas" target="_blank" rel="noopener" class="bmc-link">
       <img
         src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png"
         alt="Buy Me A Coffee"

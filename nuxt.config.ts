@@ -22,6 +22,19 @@ export default defineNuxtConfig({
       },
       /** Cloudflare Turnstile site key (public). Set NUXT_PUBLIC_TURNSTILE_SITE_KEY in production. */
       turnstileSiteKey: '',
+      /** Show Buy Me a Coffee badge. Set SHOW_BUYMEACOFFEE_LINK=true to enable. */
+      showBuyMeACoffee: process.env.SHOW_BUYMEACOFFEE_LINK === 'true',
+    },
+  },
+  app: {
+    head: {
+      script: [
+        {
+          src: 'https://static.cloudflareinsights.com/beacon.min.js',
+          defer: true,
+          'data-cf-beacon': '{"token": "3ee9931a9097410bb0195225e9b27d7d"}',
+        },
+      ],
     },
   },
   // @ts-expect-error - nitro is valid at runtime; schema types omit it (Nuxt 4 compat)

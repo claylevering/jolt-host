@@ -1,10 +1,13 @@
 import { readBody } from 'h3'
 import { randomUUID } from 'crypto'
 import { hashPassword } from '~/server/utils/password'
-import { insertUser, findUserByEmail } from '~/server/utils/db'
+import { insertUser, findUserByEmail, getConfig } from '~/server/utils/db'
 import { setUserCookie } from '~/server/utils/user-auth'
 
 export default defineEventHandler(async (event) => {
+  if (getConfig('auth_enabled', '0') !== '1') {
+    throw createError({ statusCode: 403, message: 'Registration is currently disabled' })
+  }
   const body = await readBody(event).catch(() => ({}))
   const name = typeof body?.name === 'string' ? body.name.trim() : ''
   const email = typeof body?.email === 'string' ? body.email.trim() : ''

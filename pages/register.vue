@@ -1,4 +1,9 @@
 <script setup lang="ts">
+const { data: siteConfig } = await useFetch('/api/config')
+if (!siteConfig.value?.authEnabled) {
+  await navigateTo('/')
+}
+
 const name = ref('')
 const email = ref('')
 const password = ref('')

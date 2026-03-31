@@ -3,23 +3,35 @@ const route = useRoute()
 const slug = computed(() => route.params.slug as string)
 const RESULT_BY_SLUG_PREFIX = 'jolthost-result-'
 
+type StoredResult = { url_with_unlock?: string; url?: string; owner_token?: string }
+
+const storedResult = ref<StoredResult | null>(null)
+
+onMounted(() => {
+  try {
+    const raw = sessionStorage.getItem(`${RESULT_BY_SLUG_PREFIX}${slug.value}`)
+    if (raw) storedResult.value = JSON.parse(raw) as StoredResult
+  } catch (_) {}
+})
+
 const url = computed(() => {
   const s = slug.value
   if (!s) return ''
   if (import.meta.client) {
-    try {
-      const stored = sessionStorage.getItem(`${RESULT_BY_SLUG_PREFIX}${s}`)
-      if (stored) {
-        const parsed = JSON.parse(stored) as { url_with_unlock?: string; url?: string }
-        if (parsed.url_with_unlock) return parsed.url_with_unlock
-        if (parsed.url) return parsed.url
-      }
-    } catch (_) {}
+    if (storedResult.value?.url_with_unlock) return storedResult.value.url_with_unlock
+    if (storedResult.value?.url) return storedResult.value.url
     return `${window.location.origin}/view/${s}`
   }
   const req = useRequestURL()
   return `${req.origin}/view/${s}`
 })
+
+const deleteUrl = computed(() => {
+  const token = storedResult.value?.owner_token
+  if (!token) return null
+  return `/delete/${slug.value}?token=${encodeURIComponent(token)}`
+})
+
 const copied = ref(false)
 
 async function copyUrl() {
@@ -46,7 +58,11 @@ async function copyUrl() {
         </button>
       </div>
       <div>
-      <NuxtLink to="/" class="back-link">← Upload another site</NuxtLink>
+        <NuxtLink to="/" class="back-link">← Upload another site</NuxtLink>
+      </div>
+      <div v-if="deleteUrl" class="delete-wrap">
+        <NuxtLink :to="deleteUrl" class="delete-link">Delete this site</NuxtLink>
+        <span class="delete-hint">Only visible to you, once</span>
       </div>
     </div>
   </div>
@@ -118,5 +134,26 @@ async function copyUrl() {
 }
 .back-link:hover {
   color: #a78bfa;
+}
+.delete-wrap {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+.delete-link {
+  font-size: 0.85rem;
+  color: #71717a;
+  text-decoration: none;
+}
+.delete-link:hover {
+  color: #f87171;
+}
+.delete-hint {
+  font-size: 0.75rem;
+  color: #3f3f46;
 }
 </style>

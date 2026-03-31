@@ -68,6 +68,10 @@ function getDb(): Database.Database {
         created_at TEXT NOT NULL DEFAULT (datetime('now'))
       );
       CREATE INDEX IF NOT EXISTS idx_api_tokens_nickname ON api_tokens(nickname);
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
     `)
   }
   return db
@@ -144,6 +148,12 @@ export function getExpiredUploadSlugs(): string[] {
 export function deleteUploadBySlug(slug: string): boolean {
   const database = getDb()
   const info = database.prepare('DELETE FROM uploads WHERE slug = ?').run(slug)
+  return info.changes === 1
+}
+
+export function deleteUploadBySlugAndOwnerToken(slug: string, ownerToken: string): boolean {
+  const database = getDb()
+  const info = database.prepare('DELETE FROM uploads WHERE slug = ? AND owner_token = ?').run(slug, ownerToken)
   return info.changes === 1
 }
 
@@ -367,4 +377,16 @@ export function getUploadsByUserId(userId: string, page: number, limit: number):
     'SELECT id, slug, entry_point, password_hash, owner_token, created_at, expires_at, user_id FROM uploads WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
   ).all(userId, l, offset) as UploadRow[]
   return { items: rows, total }
+}
+
+// Site settings
+export function getConfig(key: string, defaultValue: string = ''): string {
+  const database = getDb()
+  const row = database.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined
+  return row?.value ?? defaultValue
+}
+
+export function setConfig(key: string, value: string): void {
+  const database = getDb()
+  database.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, value)
 }

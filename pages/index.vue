@@ -242,13 +242,11 @@ onUnmounted(() => {
       <div v-if="turnstileEnabled" ref="turnstileContainer" class="turnstile-wrap" />
 
       <button
-        type="button"
-        class="submit-btn"
-        :disabled="!selectedFile || uploading || (turnstileEnabled && !turnstileToken)"
-        @mouseenter="charged = true"
-        @mouseleave="charged = false"
-        @click="submitForm"
-      >
+          type="button"
+          class="submit-btn"
+          :disabled="!selectedFile || uploading || (turnstileEnabled && !turnstileToken)"
+          @click="submitForm"
+        >
         <template v-if="!uploading">
           <span
             v-for="(char, i) in 'Upload'"
@@ -266,9 +264,13 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <p class="previewer-link-wrap" v-if="false">
-      <NuxtLink to="/previewer" class="previewer-link">Don't need to publish? Use the HTML previewer.</NuxtLink>
-    </p>
+    <a href="https://www.buymeacoffee.com/harrymeas" target="_blank" rel="noopener" class="bmc-link">
+      <img
+        src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png"
+        alt="Buy Me A Coffee"
+        class="bmc-badge"
+      />
+    </a>
   </div>
 </template>
 
@@ -593,5 +595,15 @@ onUnmounted(() => {
 }
 .previewer-link:hover {
   color: #a78bfa;
+}
+.bmc-link {
+  display: inline-block;
+  margin-top: 1.25rem;
+}
+.bmc-badge {
+  height: 40px;
+  width: auto;
+  display: block;
+  border-radius: 8px;
 }
 </style>

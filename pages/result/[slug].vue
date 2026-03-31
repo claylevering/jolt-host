@@ -63,6 +63,11 @@ async function copyUrl() {
       <div v-if="deleteUrl" class="delete-wrap">
         <NuxtLink :to="deleteUrl" class="delete-link">Delete this site</NuxtLink>
         <span class="delete-hint">Only visible to you, once</span>
+        <div class="token-wrap">
+          <span class="token-label">Owner Token</span>
+          <code class="token-value">{{ storedResult?.owner_token }}</code>
+          <span class="token-hint">This is the only way we can identify your upload if you contact us to request deletion.</span>
+        </div>
       </div>
     </div>
   </div>
@@ -155,5 +160,33 @@ async function copyUrl() {
 .delete-hint {
   font-size: 0.75rem;
   color: #3f3f46;
+}
+.token-wrap {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+}
+.token-label {
+  font-size: 0.7rem;
+  color: #52525b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.token-value {
+  font-size: 0.75rem;
+  color: #71717a;
+  word-break: break-all;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.3rem 0.5rem;
+  border-radius: 6px;
+}
+.token-hint {
+  font-size: 0.7rem;
+  color: #3f3f46;
+  line-height: 1.4;
 }
 </style>

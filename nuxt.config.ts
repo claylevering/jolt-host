@@ -28,6 +28,7 @@ export default defineNuxtConfig({
   },
   app: {
     head: {
+      title: 'Jolt Host',
       link: [
         {
           rel: 'icon',

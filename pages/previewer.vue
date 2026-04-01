@@ -1,4 +1,11 @@
 <script setup lang="ts">
+useSeoMeta({
+  title: 'HTML Previewer',
+  description: 'Preview HTML live in a split-view editor. Paste or type HTML and see the result instantly.',
+  ogTitle: 'HTML Previewer — Jolt Host',
+  ogDescription: 'Preview HTML live in a split-view editor. Paste or type HTML and see the result instantly.',
+})
+
 const html = ref('')
 
 type FocusMode = 'balanced' | 'preview' | 'input'

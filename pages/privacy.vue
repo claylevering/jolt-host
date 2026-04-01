@@ -1,7 +1,12 @@
 <script setup lang="ts">
 const { data } = await useFetch<{ html: string }>('/api/privacy')
 
-useHead({ title: 'Privacy Policy — Jolt Host' })
+useSeoMeta({
+  title: 'Privacy Policy',
+  description: 'Read the Jolt Host Privacy Policy to understand how your data is handled.',
+  ogTitle: 'Privacy Policy — Jolt Host',
+  ogDescription: 'Read the Jolt Host Privacy Policy.',
+})
 </script>
 
 <template>

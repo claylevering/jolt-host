@@ -1,4 +1,11 @@
 <script setup lang="ts">
+useSeoMeta({
+  title: 'HTML Editor',
+  description: 'Visually edit HTML text in your browser and publish with one click.',
+  ogTitle: 'HTML Editor — Jolt Host',
+  ogDescription: 'Visually edit HTML text in your browser and publish with one click.',
+})
+
 import { prepareHtmlForEditor, cleanEditorHtml, useEditTracker } from '~/composables/useHtmlEditor'
 import { useEditorBridge } from '~/composables/useEditorBridge'
 import type { HoverPayload, SelectPayload } from '~/composables/useEditorBridge'

@@ -1,7 +1,12 @@
 <script setup lang="ts">
 const { data } = await useFetch<{ html: string }>('/api/how-to')
 
-useHead({ title: 'How to use Jolt Host' })
+useSeoMeta({
+  title: 'How to Use Jolt Host',
+  description: 'Learn how to upload HTML, Markdown, or ZIP files and share static sites instantly with Jolt Host.',
+  ogTitle: 'How to Use Jolt Host',
+  ogDescription: 'Learn how to upload HTML, Markdown, or ZIP files and share static sites instantly.',
+})
 </script>
 
 <template>

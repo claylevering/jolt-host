@@ -1,4 +1,11 @@
 <script setup lang="ts">
+useSeoMeta({
+  title: 'Paste HTML',
+  description: 'Paste raw HTML and get an instant shareable URL. No login needed.',
+  ogTitle: 'Paste HTML — Jolt Host',
+  ogDescription: 'Paste raw HTML and get an instant shareable URL. No login needed.',
+})
+
 const pasteUrl = '/api/paste'
 const html = ref('')
 const submitting = ref(false)

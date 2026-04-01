@@ -31,6 +31,18 @@ export default defineNuxtConfig({
   app: {
     head: {
       title: 'Jolt Host',
+      titleTemplate: '%s — Jolt Host',
+      htmlAttrs: { lang: 'en' },
+      meta: [
+        { name: 'description', content: 'Upload static HTML, Markdown, or ZIP files and get an instant shareable URL. Free, no login required.' },
+        { property: 'og:type', content: 'website' },
+        { property: 'og:site_name', content: 'Jolt Host' },
+        { property: 'og:title', content: 'Jolt Host — Static Site Pastebin' },
+        { property: 'og:description', content: 'Upload static HTML, Markdown, or ZIP files and get an instant shareable URL. Free, no login required.' },
+        { name: 'twitter:card', content: 'summary' },
+        { name: 'twitter:title', content: 'Jolt Host — Static Site Pastebin' },
+        { name: 'twitter:description', content: 'Upload static HTML, Markdown, or ZIP files and get an instant shareable URL. Free, no login required.' },
+      ],
       link: [
         {
           rel: 'icon',

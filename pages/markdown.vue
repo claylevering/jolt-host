@@ -1,4 +1,11 @@
 <script setup lang="ts">
+useSeoMeta({
+  title: 'Paste Markdown',
+  description: 'Paste Markdown and publish it as a rendered webpage with a shareable link. No login needed.',
+  ogTitle: 'Paste Markdown — Jolt Host',
+  ogDescription: 'Paste Markdown and publish it as a rendered webpage with a shareable link.',
+})
+
 const markdownUrl = '/api/markdown'
 const content = ref('')
 const submitting = ref(false)

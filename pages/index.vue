@@ -1,4 +1,11 @@
 <script setup lang="ts">
+useSeoMeta({
+  title: 'Upload a Static Site',
+  description: 'Upload an HTML file, Markdown, or ZIP and get an instant shareable URL. Free, no login required.',
+  ogTitle: 'Jolt Host — Static Site Pastebin',
+  ogDescription: 'Upload an HTML file, Markdown, or ZIP and get an instant shareable URL. Free, no login required.',
+})
+
 const { charged } = useLightningCharge()
 const uploadUrl = '/api/upload'
 const fileInput = ref<HTMLInputElement | null>(null)

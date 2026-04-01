@@ -163,11 +163,18 @@ onUnmounted(() => {
   document.removeEventListener('drop', preventDropNav, true)
   document.removeEventListener('dragover', preventDropNav, true)
 })
+
+// ── Cord animation ──────────────────────────────────────────────────────────
+const heroRef  = ref<HTMLElement | null>(null)
+const heroBodyRef = ref<HTMLElement | null>(null)
+const clockRef = ref<SVGElement | null>(null)
+const boxRef   = ref<HTMLElement | null>(null)
+const boxPowered = ref(false)
 </script>
 
 <template>
   <div class="page">
-    <div class="hero">
+    <div class="hero" ref="heroRef">
       <div class="hero-left">
         <p class="hero-eyebrow">Temporary Static Site Hosting</p>
         <h1 class="hero-headline">Publish your static site in<br><span class="hero-highlight"><span
@@ -175,7 +182,7 @@ onUnmounted(() => {
           :key="i"
           class="hero-highlight-letter"
           :style="{ '--i': i }"
-        >{{ char }}</span><svg class="hero-clock" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        >{{ char }}</span><svg ref="clockRef" class="hero-clock" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
           <!-- Face -->
           <circle cx="50" cy="50" r="47" class="clock-face"/>
           <!-- Tick marks: every 30°; cardinal positions (h%3===1) are longer -->
@@ -206,7 +213,7 @@ onUnmounted(() => {
           <circle cx="50" cy="50" r="4.5" class="clock-center-cap"/>
           <circle cx="50" cy="50" r="2" fill="#18181b"/>
         </svg></span></h1>
-        <p class="hero-body">Upload an HTML file, static site ZIP, or Markdown and get a shareable URL — instantly.</p>
+        <p ref="heroBodyRef" class="hero-body">Upload an HTML file, static site ZIP, or Markdown and get a shareable URL — instantly.</p>
         <ul class="hero-perks">
           <li><span class="perk-icon">⚡</span> No sign-up required</li>
           <li><span class="perk-icon">🚫</span> Zero ad tracking</li>
@@ -222,7 +229,7 @@ onUnmounted(() => {
         </a>
       </div><!-- .hero-left -->
       <div class="hero-right">
-        <div class="box">
+        <div ref="boxRef" class="box" :class="{ 'box-powered': boxPowered }">
           <h2 class="title">Upload a static site</h2>
       <p class="subtitle">Choose an HTML file, Markdown, or ZIP<span class="zip-info-wrap"><span class="zip-info-icon" tabindex="0" aria-label="ZIP format requirements">ⓘ</span><span class="zip-info-tooltip" role="tooltip">Your ZIP must contain an <strong>index.html</strong> at the root of the archive. Nested HTML files and assets (images, CSS, JS) can be placed in subfolders.</span></span>, set options, then submit</p>
 
@@ -327,6 +334,14 @@ onUnmounted(() => {
         </div><!-- .box -->
 
       </div><!-- .hero-right -->
+
+      <!-- Physics-based canvas cord -->
+      <CordCanvas
+        :fromEl="clockRef"
+        :toEl="boxRef"
+        :containerEl="heroRef"
+        @plugged-in="boxPowered = true"
+      />
     </div><!-- .hero -->
   </div>
 </template>
@@ -346,7 +361,21 @@ onUnmounted(() => {
   grid-template-columns: 1fr 1fr;
   gap: 3rem;
   align-items: center;
+  position: relative;
 }
+
+/* Box power-on glow */
+.box-powered {
+  animation: box-power-on 1.4s ease-out forwards;
+}
+@keyframes box-power-on {
+  0%   { box-shadow: none; border-color: rgba(255,255,255,0.08); }
+  10%  { border-color: rgba(253,224,71,0.8); box-shadow: 0 0 0 2px rgba(253,224,71,0.6), 0 0 30px rgba(253,224,71,0.6), 0 0 60px rgba(253,224,71,0.3); }
+  25%  { border-color: rgba(253,224,71,0.5); box-shadow: 0 0 0 1px rgba(253,224,71,0.3), 0 0 50px rgba(253,224,71,0.5), 0 0 100px rgba(253,224,71,0.2); }
+  50%  { border-color: rgba(253,224,71,0.25); box-shadow: 0 0 20px rgba(253,224,71,0.25), 0 0 60px rgba(253,224,71,0.1); }
+  100% { border-color: rgba(255,255,255,0.08); box-shadow: 0 0 12px rgba(253,224,71,0.08); }
+}
+/* ─────────────────────────────────────────────────────────── */
 .hero-left {
   padding: 1rem 0;
 }
@@ -481,6 +510,10 @@ onUnmounted(() => {
   }
   .hero-perks {
     align-items: center;
+  }
+  .box-powered {
+    animation: none;
+    box-shadow: none;
   }
 }
 .dropzone {

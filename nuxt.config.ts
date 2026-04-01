@@ -22,6 +22,27 @@ export default defineNuxtConfig({
       },
       /** Cloudflare Turnstile site key (public). Set NUXT_PUBLIC_TURNSTILE_SITE_KEY in production. */
       turnstileSiteKey: '',
+      /** Show Buy Me a Coffee badge. Set SHOW_BUYMEACOFFEE_LINK=true to enable. */
+      showBuyMeACoffee: process.env.SHOW_BUYMEACOFFEE_LINK === 'true',
+    },
+  },
+  app: {
+    head: {
+      title: 'Jolt Host',
+      link: [
+        {
+          rel: 'icon',
+          type: 'image/svg+xml',
+          href: 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>',
+        },
+      ],
+      script: [
+        {
+          src: 'https://static.cloudflareinsights.com/beacon.min.js',
+          defer: true,
+          'data-cf-beacon': '{"token": "3ee9931a9097410bb0195225e9b27d7d"}',
+        },
+      ],
     },
   },
   // @ts-expect-error - nitro is valid at runtime; schema types omit it (Nuxt 4 compat)

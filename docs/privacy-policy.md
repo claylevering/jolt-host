@@ -103,7 +103,7 @@ If you lose your owner token and need an upload removed, you can contact us with
 
 ## Contact
 
-For privacy questions or data deletion requests, contact: **[support@thunderjolt.app]**
+For privacy questions or data deletion requests, contact: **{{SUPPORT_EMAIL}}**
 
 ---
 

@@ -6,6 +6,8 @@ useSeoMeta({
   ogDescription: 'Paste raw HTML and get an instant shareable URL. No login needed.',
 })
 
+useHead({ link: [{ rel: 'canonical', href: 'https://host.thunderjolt.app/paste' }] })
+
 const pasteUrl = '/api/paste'
 const html = ref('')
 const submitting = ref(false)

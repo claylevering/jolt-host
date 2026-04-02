@@ -7,6 +7,8 @@ useSeoMeta({
   ogTitle: 'How to Use Jolt Host',
   ogDescription: 'Learn how to upload HTML, Markdown, or ZIP files and share static sites instantly.',
 })
+
+useHead({ link: [{ rel: 'canonical', href: 'https://host.thunderjolt.app/how-to' }] })
 </script>
 
 <template>

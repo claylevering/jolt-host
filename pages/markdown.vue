@@ -6,6 +6,8 @@ useSeoMeta({
   ogDescription: 'Paste Markdown and publish it as a rendered webpage with a shareable link.',
 })
 
+useHead({ link: [{ rel: 'canonical', href: 'https://host.thunderjolt.app/markdown' }] })
+
 const markdownUrl = '/api/markdown'
 const content = ref('')
 const submitting = ref(false)

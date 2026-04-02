@@ -6,6 +6,8 @@ useSeoMeta({
   ogDescription: 'Upload an HTML file, Markdown, or ZIP and get an instant shareable URL. Free, no login required.',
 })
 
+useHead({ link: [{ rel: 'canonical', href: 'https://host.thunderjolt.app/' }] })
+
 const { charged } = useLightningCharge()
 const uploadUrl = '/api/upload'
 const fileInput = ref<HTMLInputElement | null>(null)

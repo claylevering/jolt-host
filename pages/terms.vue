@@ -7,6 +7,8 @@ useSeoMeta({
   ogTitle: 'Terms and Conditions — Jolt Host',
   ogDescription: 'Read the Jolt Host Terms and Conditions.',
 })
+
+useHead({ link: [{ rel: 'canonical', href: 'https://host.thunderjolt.app/terms' }] })
 </script>
 
 <template>

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+useHead({ meta: [{ name: 'robots', content: 'noindex, nofollow' }] })
+
 const route = useRoute()
 const slug = computed(() => route.params.slug as string)
 const RESULT_BY_SLUG_PREFIX = 'jolthost-result-'

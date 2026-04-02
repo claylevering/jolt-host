@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last updated:** March 2026
+**Last updated:** April 2026
 
 This policy explains what Jolt Host collects from people who use the service to host static sites, and how that information is handled.
 
@@ -25,6 +25,7 @@ When you upload a file, the content is stored on the server's disk inside a priv
 - Expiration timestamp (if you chose one)
 - A bcrypt hash of your password (if you chose to password-protect the upload)
 - A random owner token — this is returned to you at upload time and lets you delete your upload or change the password or expiry later. It is not linked to your identity.
+- A title (if you chose to enter one) — a short label stored alongside your upload record for reference
 
 We do **not** store your original filename.
 
@@ -34,6 +35,21 @@ We do **not** store your original filename.
 - No browsing history
 - No device fingerprinting
 - No original filenames
+
+---
+
+## My Sites (localStorage)
+
+When you successfully publish a site, Jolt Host saves a record to your browser's `localStorage` under the key `joltHost_mySites`. This record contains:
+
+- The live URL of your site
+- The title you entered (if any)
+- The publish timestamp
+- The expiration timestamp
+
+**This data never leaves your browser.** It is not transmitted to the server, not linked to your identity, and not accessible to anyone other than you on the device and browser you used. Jolt Host does not read, copy, or process it in any way.
+
+You can view and delete this data at any time on the [My Sites](/my-sites) page using the **Clear My Sites data** button. Clearing your browser's storage or using a private/incognito window will also remove it.
 
 ---
 

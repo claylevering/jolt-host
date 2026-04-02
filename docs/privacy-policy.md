@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last updated:** April 2026
+**Last updated:** April 2, 2026
 
 This policy explains what Jolt Host collects from people who use the service to host static sites, and how that information is handled.
 
@@ -106,6 +106,73 @@ No other third-party services receive your data.
 | Rate-limit records | Server restarts |
 
 If you did not set an expiration, your upload persists until an administrator removes it or you use your owner token to delete it.
+
+---
+
+## Security
+
+We take reasonable measures to protect your data:
+
+- Passwords are hashed with bcrypt before storage
+- Uploaded files are stored in a private directory on the server's disk
+- Owner tokens are randomly generated and are the sole proof of ownership
+- Rate limiting prevents abuse of the upload system
+
+No system is completely secure, and we cannot guarantee absolute security of data transmitted to or stored by Jolt Host.
+
+---
+
+## Server location
+
+Jolt Host is hosted on servers located in the United States. If you access the service from outside the United States, your data may be transferred to, stored, and processed in the United States.
+
+---
+
+## International data transfers
+
+By using Jolt Host, you acknowledge and agree that your data may be transferred to and processed in countries other than your own, including the United States. These countries may have data protection laws that differ from those in your jurisdiction. We take appropriate safeguards to ensure your data receives an adequate level of protection.
+
+---
+
+## Children's privacy
+
+Jolt Host is not directed to individuals under the age of 13 (or the applicable age of consent in your jurisdiction). We do not knowingly collect personal information from children. If you believe a child has provided us with personal information, please contact us at **{{SUPPORT_EMAIL}}** and we will take steps to delete it.
+
+---
+
+## Legal basis for processing (GDPR)
+
+If you are located in the European Economic Area (EEA) or the United Kingdom, our legal basis for processing your personal data includes:
+
+- **Legitimate interests** — operating and improving the service, enforcing rate limits, and preventing abuse
+- **Consent** — by using the service, you consent to the processing described in this policy
+- **Contractual necessity** — processing is necessary to provide the hosting service you request
+
+You have the right to access, rectify, erase, restrict, or port your personal data, and to object to processing. Because Jolt Host is designed for anonymous use, we can only exercise these rights to the extent that we can identify your data.
+
+---
+
+## Analytics opt-out
+
+Cloudflare Web Analytics is used to count page visits and understand general traffic patterns. You can opt out of Cloudflare Web Analytics by enabling the **Do Not Track** setting in your browser or by using a browser extension that blocks analytics scripts.
+
+---
+
+## Breach notification
+
+In the event of a data breach that is likely to result in a risk to your rights and freedoms, we will notify the relevant supervisory authority and, where feasible, affected users without undue delay after becoming aware of the breach.
+
+---
+
+## Business transfers
+
+If Jolt Host is involved in a merger, acquisition, asset sale, or other business transfer, your data may be transferred as part of that transaction. We will provide notice before your data is transferred and becomes subject to a different privacy policy.
+
+---
+
+## Complaints
+
+If you are located in the EEA or the UK and believe our processing of your personal data violates applicable data protection laws, you have the right to lodge a complaint with your local supervisory authority. You can find a list of supervisory authorities at the [European Data Protection Board website](https://edpb.europa.eu/about-edpb/about-edpb/members_en).
 
 ---
 

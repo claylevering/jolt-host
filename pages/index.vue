@@ -268,8 +268,8 @@ const boxPowered = ref(false)
             Change file
           </button>
         </template>
-        <template v-else>
-          <span>Drag & drop or click to upload an HTML file, Markdown, or ZIP</span>
+         <template v-else>
+          <span>Drag & drop or click to upload a .html, .zip, or .md file</span>
         </template>
       </div>
 

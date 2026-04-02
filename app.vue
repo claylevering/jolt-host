@@ -71,6 +71,8 @@ async function logout() {
       <span class="footer-sep">·</span>
       <NuxtLink to="/privacy" class="footer-link">Privacy Policy</NuxtLink>
       <span class="footer-sep">·</span>
+      <NuxtLink to="/terms" class="footer-link">Terms</NuxtLink>
+      <span class="footer-sep">·</span>
       <a href="https://github.com/djmeas/jolt-host" target="_blank" rel="noopener" class="footer-github">
         <svg class="github-icon" viewBox="0 0 16 16" aria-hidden="true" fill="currentColor">
           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38

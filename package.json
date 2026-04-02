@@ -7,6 +7,9 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
+    "deploy": "nuxt build && wrangler pages deploy",
+    "db:migrate:local": "wrangler d1 execute jolt-host-db --local --file=migrations/0001_init.sql && wrangler d1 execute jolt-host-db --local --file=migrations/0002_users_and_settings.sql",
+    "db:migrate:remote": "wrangler d1 execute jolt-host-db --remote --file=migrations/0001_init.sql && wrangler d1 execute jolt-host-db --remote --file=migrations/0002_users_and_settings.sql",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:unit": "vitest run server/",
@@ -14,14 +17,14 @@
     "test:fixtures": "node scripts/build-test-fixtures.mjs"
   },
   "dependencies": {
-    "better-sqlite3": "^11.6.0",
+    "fflate": "^0.8.2",
     "marked": "^17.0.5",
     "mime-types": "^2.1.35",
     "notivue": "^2.4.5",
-    "nuxt": "^3.14.1590",
-    "unzipper": "^0.12.3"
+    "nuxt": "^3.14.1590"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241230.0",
     "@nuxt/devtools": "latest",
     "@nuxt/test-utils": "^4.0.0",
     "@vue/test-utils": "^2.4.6",
